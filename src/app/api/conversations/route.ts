@@ -18,13 +18,26 @@ export async function GET() {
   return Response.json(convs);
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function DELETE(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { conversationId } = await req.json();
+  let body: { conversationId?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const { conversationId } = body;
+
+  if (!conversationId || typeof conversationId !== "string" || !UUID_RE.test(conversationId)) {
+    return new Response("Invalid conversation ID", { status: 400 });
+  }
 
   const [conv] = await db
     .select()

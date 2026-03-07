@@ -10,6 +10,7 @@ import { streamText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 
 const MAX_HISTORY = 14;
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -17,14 +18,25 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { message, conversationId } = await req.json();
+  let body: { message?: unknown; conversationId?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return new Response("Invalid JSON", { status: 400 });
+  }
+
+  const { message, conversationId } = body;
 
   if (!message || typeof message !== "string") {
     return new Response("Message is required", { status: 400 });
   }
 
+  if (conversationId && (typeof conversationId !== "string" || !UUID_RE.test(conversationId))) {
+    return new Response("Invalid conversation ID", { status: 400 });
+  }
+
   // Get or create conversation
-  let convId = conversationId;
+  let convId = conversationId as string | undefined;
   let puzzleState = "initial";
 
   if (convId) {
@@ -112,15 +124,19 @@ export async function POST(req: Request) {
     },
     onFinish: async ({ text }) => {
       if (text) {
-        await db.insert(messages).values({
-          conversationId: convId,
-          role: "assistant",
-          content: text,
-        });
-        await db
-          .update(conversations)
-          .set({ updatedAt: new Date() })
-          .where(eq(conversations.id, convId));
+        try {
+          await db.insert(messages).values({
+            conversationId: convId,
+            role: "assistant",
+            content: text,
+          });
+          await db
+            .update(conversations)
+            .set({ updatedAt: new Date() })
+            .where(eq(conversations.id, convId));
+        } catch (err) {
+          console.error("Failed to persist assistant message:", err);
+        }
       }
     },
   });

@@ -23,6 +23,7 @@ export default function Chat() {
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -81,6 +82,7 @@ export default function Chat() {
     setInput("");
     setIsLoading(true);
     setStreamingContent("");
+    setError(null);
 
     try {
       const res = await fetch("/api/chat", {
@@ -126,14 +128,9 @@ export default function Chat() {
       loadConversations();
     } catch (err) {
       console.error("Chat error:", err);
-      setMessages((prev) => [
-        ...prev,
-        {
-          role: "assistant",
-          content:
-            "The magical energies surge with overwhelming power... The ancient network is strained. Wait a moment and speak again.",
-        },
-      ]);
+      setError(
+        "The magical energies surge with overwhelming power... The ancient network is strained. Wait a moment and speak again."
+      );
     } finally {
       setIsLoading(false);
       inputRef.current?.focus();
@@ -245,6 +242,11 @@ export default function Chat() {
               <span className="text-indigo-500 font-bold">FRAGMENT: </span>
               {streamingContent}
               <span className="animate-pulse">&#x2588;</span>
+            </div>
+          )}
+          {error && (
+            <div className="font-mono text-sm leading-relaxed text-red-400 whitespace-pre-wrap">
+              {error}
             </div>
           )}
           <div ref={messagesEndRef} />

@@ -5,9 +5,16 @@ import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 export async function POST(req: Request) {
-  const { username, password } = await req.json();
+  let body: { username?: unknown; password?: unknown };
+  try {
+    body = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
 
-  if (!username || !password) {
+  const { username, password } = body;
+
+  if (!username || typeof username !== "string" || !password || typeof password !== "string") {
     return NextResponse.json(
       { error: "Username and password are required" },
       { status: 400 }
@@ -43,7 +50,18 @@ export async function POST(req: Request) {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  await db.insert(users).values({ username, passwordHash });
+  try {
+    await db.insert(users).values({ username, passwordHash });
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "";
+    if (message.includes("unique") || message.includes("duplicate")) {
+      return NextResponse.json(
+        { error: "Username already taken" },
+        { status: 409 }
+      );
+    }
+    throw err;
+  }
 
   return NextResponse.json({ success: true });
 }

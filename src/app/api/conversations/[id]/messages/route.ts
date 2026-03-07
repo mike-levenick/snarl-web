@@ -3,6 +3,8 @@ import { db } from "@/db";
 import { conversations, messages } from "@/db/schema";
 import { eq, asc } from "drizzle-orm";
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -13,6 +15,10 @@ export async function GET(
   }
 
   const { id } = await params;
+
+  if (!UUID_RE.test(id)) {
+    return new Response("Invalid conversation ID", { status: 400 });
+  }
 
   const [conv] = await db
     .select()
