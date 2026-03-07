@@ -1,0 +1,133 @@
+import { auth } from "@/lib/auth";
+import { db } from "@/db";
+import { conversations, messages } from "@/db/schema";
+import { eq, asc } from "drizzle-orm";
+import { getSystemPrompt } from "@/lib/prompt";
+import { getContext } from "@/lib/knowledge-base";
+import { checkUnlockPhrase } from "@/lib/puzzle";
+import { bedrock } from "@ai-sdk/amazon-bedrock";
+import { streamText, tool, stepCountIs } from "ai";
+import { z } from "zod";
+
+const MAX_HISTORY = 14;
+
+export async function POST(req: Request) {
+  const session = await auth();
+  if (!session?.user?.id) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+
+  const { message, conversationId } = await req.json();
+
+  if (!message || typeof message !== "string") {
+    return new Response("Message is required", { status: 400 });
+  }
+
+  // Get or create conversation
+  let convId = conversationId;
+  let puzzleState = "initial";
+
+  if (convId) {
+    const [conv] = await db
+      .select()
+      .from(conversations)
+      .where(eq(conversations.id, convId))
+      .limit(1);
+
+    if (!conv || conv.userId !== session.user.id) {
+      return new Response("Conversation not found", { status: 404 });
+    }
+    puzzleState = conv.puzzleState;
+  } else {
+    const [conv] = await db
+      .insert(conversations)
+      .values({ userId: session.user.id })
+      .returning();
+    convId = conv.id;
+  }
+
+  // Check for unlock phrase
+  if (checkUnlockPhrase(message)) {
+    puzzleState = "stage_2";
+    await db
+      .update(conversations)
+      .set({ puzzleState: "stage_2", updatedAt: new Date() })
+      .where(eq(conversations.id, convId));
+  }
+
+  // Save user message
+  await db.insert(messages).values({
+    conversationId: convId,
+    role: "user",
+    content: message,
+  });
+
+  // Load conversation history
+  const history = await db
+    .select()
+    .from(messages)
+    .where(eq(messages.conversationId, convId))
+    .orderBy(asc(messages.createdAt));
+
+  // Trim to MAX_HISTORY (most recent messages)
+  const trimmedHistory = history.slice(-MAX_HISTORY);
+
+  const historyMessages = trimmedHistory.map((m) => ({
+    role: m.role as "user" | "assistant",
+    content: m.content,
+  }));
+
+  const allowRestricted = puzzleState === "stage_2";
+  const systemPrompt = getSystemPrompt(session.user.name ?? undefined);
+
+  const modelId =
+    process.env.CLAUDE_MODEL_ID || "anthropic.claude-haiku-4-5-20251001";
+  const model = bedrock(modelId);
+
+  const result = streamText({
+    model,
+    system: systemPrompt,
+    messages: historyMessages,
+    maxOutputTokens: 1000,
+    stopWhen: stepCountIs(4),
+    tools: {
+      search_knowledge: tool({
+        description:
+          "Search Fragment's knowledge for information about people, places, lore, and more. ALWAYS use this tool when someone asks about specific people/NPCs by name, locations, religions, organizations, historical events, or any proper nouns.",
+        inputSchema: z.object({
+          query: z
+            .string()
+            .describe(
+              "The name, term, or topic to search for (e.g., 'Rynel Daetoris', 'Sovereign Host', 'Sharn')"
+            ),
+        }),
+        execute: async ({ query }) => {
+          const context = getContext(query, 1500, allowRestricted);
+          return (
+            context ??
+            "No relevant information found in the archives for this query. Try different search terms."
+          );
+        },
+      }),
+    },
+    onFinish: async ({ text }) => {
+      if (text) {
+        await db.insert(messages).values({
+          conversationId: convId,
+          role: "assistant",
+          content: text,
+        });
+        await db
+          .update(conversations)
+          .set({ updatedAt: new Date() })
+          .where(eq(conversations.id, convId));
+      }
+    },
+  });
+
+  return result.toTextStreamResponse({
+    headers: {
+      "X-Conversation-Id": convId,
+    },
+  });
+}
