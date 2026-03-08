@@ -17,10 +17,20 @@ Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Pla
 - `src/components/` — React UI components
 - `knowledge/` — markdown files for RAG (public/ and restricted/)
 
+## Git Workflow
+
+`main` is protected — no direct pushes. All changes go through PRs:
+1. Create a feature branch (e.g., `feat/my-feature` or `fix/my-bug`)
+2. Commit and push to the feature branch
+3. Open a PR against `main`
+4. Squash and merge (linear history required)
+
+Never push directly to `main`. Never force-push.
+
 ## Code Review
 
-Run the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) before committing or opening a PR. Invoke it proactively when:
-- A feature or bugfix is complete and ready to commit
+Run the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) proactively:
+- After completing a feature or bugfix, before committing
 - Before creating a pull request
 - After a large refactor
 

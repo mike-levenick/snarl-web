@@ -37,6 +37,9 @@ yarn-error.log*
 # drizzle
 /drizzle
 
+# personal docs
+/docs-private
+
 # vercel
 .vercel
 
