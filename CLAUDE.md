@@ -7,7 +7,7 @@ Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Pla
 - Next.js 16 (App Router), TypeScript, Tailwind CSS
 - Auth: NextAuth.js v5 (credentials provider)
 - Database: Vercel Postgres (Neon) via Drizzle ORM
-- LLM: Claude via AWS Bedrock (`@ai-sdk/amazon-bedrock` + Vercel AI SDK)
+- LLM: Claude via Anthropic API (`@ai-sdk/anthropic` + Vercel AI SDK)
 
 ## Key Directories
 
