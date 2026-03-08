@@ -5,7 +5,7 @@ import { eq, asc } from "drizzle-orm";
 import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
-import { bedrock } from "@ai-sdk/amazon-bedrock";
+import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 
@@ -93,8 +93,8 @@ export async function POST(req: Request) {
   const systemPrompt = getSystemPrompt(session.user.name ?? undefined);
 
   const modelId =
-    process.env.CLAUDE_MODEL_ID || "anthropic.claude-haiku-4-5-20251001";
-  const model = bedrock(modelId);
+    process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
+  const model = anthropic(modelId);
 
   const result = streamText({
     model,

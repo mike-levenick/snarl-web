@@ -13,8 +13,7 @@
     "db:studio": "drizzle-kit studio"
   },
   "dependencies": {
-    "@ai-sdk/amazon-bedrock": "^4.0.77",
-    "@aws-sdk/client-bedrock-runtime": "^3.1004.0",
+    "@ai-sdk/anthropic": "^3.0.58",
     "@neondatabase/serverless": "^1.0.2",
     "ai": "^6.0.116",
     "bcryptjs": "^3.0.3",
