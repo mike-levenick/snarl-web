@@ -1,6 +1,6 @@
 # Project SNARL Web
 
-Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Players chat with "Fragment" — an in-character AI librarian powered by Claude via AWS Bedrock, with RAG over a markdown knowledge base and a two-stage puzzle system.
+Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Players chat with "Fragment" — an in-character AI librarian powered by Claude via the Anthropic API, with RAG over a markdown knowledge base and a two-stage puzzle system.
 
 ## Tech Stack
 
