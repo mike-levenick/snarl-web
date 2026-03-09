@@ -37,10 +37,20 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   callbacks: {
     authorized({ auth: session, request }) {
       const isLoggedIn = !!session?.user;
-      const isProtected = request.nextUrl.pathname.startsWith("/chat") ||
-        request.nextUrl.pathname.startsWith("/api/chat") ||
-        request.nextUrl.pathname.startsWith("/api/conversations");
-      if (isProtected && !isLoggedIn) return false;
+      const pathname = request.nextUrl.pathname;
+      const isProtectedPage = pathname.startsWith("/chat");
+      const isProtectedApi =
+        pathname.startsWith("/api/chat") ||
+        pathname.startsWith("/api/conversations");
+      if (!isLoggedIn && (isProtectedPage || isProtectedApi)) {
+        if (isProtectedApi) {
+          return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            status: 401,
+            headers: { "content-type": "application/json" },
+          });
+        }
+        return false;
+      }
       return true;
     },
     jwt({ token, user }) {
