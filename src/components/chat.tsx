@@ -30,6 +30,7 @@ export default function Chat() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
+  const cancelRenameRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -91,6 +92,11 @@ export default function Chat() {
   };
 
   const commitRename = async (id: string) => {
+    if (cancelRenameRef.current) {
+      cancelRenameRef.current = false;
+      setRenamingId(null);
+      return;
+    }
     const trimmed = renameValue.trim();
     setRenamingId(null);
     if (!trimmed || trimmed.length > 60) return;
@@ -111,9 +117,11 @@ export default function Chat() {
   const handleRenameKeyDown = (e: React.KeyboardEvent, id: string) => {
     if (e.key === "Enter") {
       e.preventDefault();
-      commitRename(id);
+      // Blur the input — onBlur → commitRename fires once
+      renameInputRef.current?.blur();
     } else if (e.key === "Escape") {
-      setRenamingId(null);
+      cancelRenameRef.current = true;
+      renameInputRef.current?.blur();
     }
   };
 
