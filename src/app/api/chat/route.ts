@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { conversations, messages } from "@/db/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, isNull, and } from "drizzle-orm";
 import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     void (async () => {
       try {
         const { text } = await generateText({
-          model: anthropic("claude-haiku-4-5-20251001"),
+          model: anthropic(process.env.CLAUDE_MODEL_ID ?? "claude-haiku-4-5-20251001"),
           prompt: `Generate a short title (3–6 words) for a conversation that begins with this message. Reply with only the title, no quotes, no trailing punctuation.\n\nMessage: ${msgForTitle}`,
           maxOutputTokens: 20,
         });
@@ -71,7 +71,7 @@ export async function POST(req: Request) {
           await db
             .update(conversations)
             .set({ title })
-            .where(eq(conversations.id, conv.id));
+            .where(and(eq(conversations.id, conv.id), isNull(conversations.title)));
         }
       } catch (err) {
         console.error("Failed to generate conversation title:", err);

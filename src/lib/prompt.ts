@@ -1,6 +1,7 @@
 export function getSystemPrompt(studentName?: string): string {
-  const studentContext = studentName
-    ? `\n\n    **Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${studentName}". This is confirmed system data, not something to speculate about. If they ask who they are or what your name for them is, tell them directly: "${studentName}".`
+  const safeName = studentName?.replace(/[\r\n\x00-\x1f"\\]/g, " ").trim();
+  const studentContext = safeName
+    ? `\n\n    **Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${safeName}". This is confirmed system data, not something to speculate about. If they ask who they are or what your name for them is, tell them directly: "${safeName}".`
     : "";
 
   return `# Fragment - System Prompt${studentContext}

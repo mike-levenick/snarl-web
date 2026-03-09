@@ -32,6 +32,13 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const cancelRenameRef = useRef(false);
+  const titlePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (titlePollRef.current) clearTimeout(titlePollRef.current);
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -197,7 +204,7 @@ export default function Chat() {
       // If this was a new conversation, Haiku title generation may still be in
       // flight — poll once more after a short delay to pick it up
       if (!conversationId) {
-        setTimeout(() => loadConversations(), 3000);
+        titlePollRef.current = setTimeout(() => loadConversations(), 3000);
       }
     } catch (err) {
       console.error("Chat error:", err);
