@@ -51,9 +51,10 @@ export async function POST(req: Request) {
     }
     puzzleState = conv.puzzleState;
   } else {
+    const title = message.length > 50 ? message.slice(0, 50).trimEnd() + "…" : message;
     const [conv] = await db
       .insert(conversations)
-      .values({ userId: session.user.id })
+      .values({ userId: session.user.id, title })
       .returning();
     convId = conv.id;
   }
