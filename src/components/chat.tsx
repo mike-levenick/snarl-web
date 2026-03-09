@@ -194,6 +194,11 @@ export default function Chat() {
       }
       setStreamingContent("");
       loadConversations();
+      // If this was a new conversation, Haiku title generation may still be in
+      // flight — poll once more after a short delay to pick it up
+      if (!conversationId) {
+        setTimeout(() => loadConversations(), 3000);
+      }
     } catch (err) {
       console.error("Chat error:", err);
       setError(
