@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { signOut } from "next-auth/react";
 
 interface Message {
   id?: string;
@@ -87,6 +88,7 @@ export default function Chat() {
 
   const startRename = (conv: Conversation, e: React.MouseEvent) => {
     e.stopPropagation();
+    cancelRenameRef.current = false;
     setRenamingId(conv.id);
     setRenameValue(conv.title ?? "");
   };
@@ -287,17 +289,12 @@ export default function Chat() {
             ))}
           </div>
           <div className="p-4 border-t border-gray-800">
-            <form
-              action="/api/auth/signout"
-              method="POST"
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors text-left"
             >
-              <button
-                type="submit"
-                className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors text-left"
-              >
-                Sign out
-              </button>
-            </form>
+              Sign out
+            </button>
           </div>
         </div>
       </div>
