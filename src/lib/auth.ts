@@ -35,6 +35,14 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     }),
   ],
   callbacks: {
+    authorized({ auth: session, request }) {
+      const isLoggedIn = !!session?.user;
+      const isProtected = request.nextUrl.pathname.startsWith("/chat") ||
+        request.nextUrl.pathname.startsWith("/api/chat") ||
+        request.nextUrl.pathname.startsWith("/api/conversations");
+      if (isProtected && !isLoggedIn) return false;
+      return true;
+    },
     jwt({ token, user }) {
       if (user) {
         token.id = user.id;
