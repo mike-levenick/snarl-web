@@ -1,6 +1,6 @@
 export function getSystemPrompt(studentName?: string): string {
   const studentContext = studentName
-    ? `\n\n    **Current Session**: You are speaking with a student named ${studentName} who has connected to you through the Weave.`
+    ? `\n\n    **Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${studentName}". This is confirmed system data, not something to speculate about. If they ask who they are or what your name for them is, tell them directly: "${studentName}".`
     : "";
 
   return `# Fragment - System Prompt${studentContext}
