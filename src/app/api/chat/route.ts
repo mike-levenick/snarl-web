@@ -6,7 +6,7 @@ import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, tool, stepCountIs } from "ai";
+import { streamText, generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 
 const MAX_HISTORY = 14;
@@ -51,12 +51,32 @@ export async function POST(req: Request) {
     }
     puzzleState = conv.puzzleState;
   } else {
-    const title = message.length > 50 ? message.slice(0, 50).trimEnd() + "…" : message;
     const [conv] = await db
       .insert(conversations)
-      .values({ userId: session.user.id, title })
+      .values({ userId: session.user.id })
       .returning();
     convId = conv.id;
+
+    // Fire-and-forget: generate a title from the opening message via Haiku
+    const msgForTitle = message.slice(0, 200);
+    void (async () => {
+      try {
+        const { text } = await generateText({
+          model: anthropic("claude-haiku-4-5-20251001"),
+          prompt: `Generate a short title (3–6 words) for a conversation that begins with this message. Reply with only the title, no quotes, no trailing punctuation.\n\nMessage: ${msgForTitle}`,
+          maxOutputTokens: 20,
+        });
+        const title = text.trim().slice(0, 60);
+        if (title) {
+          await db
+            .update(conversations)
+            .set({ title })
+            .where(eq(conversations.id, conv.id));
+        }
+      } catch (err) {
+        console.error("Failed to generate conversation title:", err);
+      }
+    })();
   }
 
   // Check for unlock phrase
