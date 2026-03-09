@@ -12,6 +12,7 @@ export const conversations = pgTable("conversations", {
   userId: uuid("user_id")
     .notNull()
     .references(() => users.id),
+  title: text("title"),
   puzzleState: text("puzzle_state").default("initial").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { signOut } from "next-auth/react";
 
 interface Message {
   id?: string;
@@ -10,6 +11,7 @@ interface Message {
 
 interface Conversation {
   id: string;
+  title: string | null;
   puzzleState: string;
   createdAt: string;
   updatedAt: string;
@@ -24,8 +26,12 @@ export default function Chat() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [streamingContent, setStreamingContent] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [renamingId, setRenamingId] = useState<string | null>(null);
+  const [renameValue, setRenameValue] = useState("");
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const renameInputRef = useRef<HTMLInputElement>(null);
+  const cancelRenameRef = useRef(false);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -38,6 +44,13 @@ export default function Chat() {
   useEffect(() => {
     inputRef.current?.focus();
   }, []);
+
+  useEffect(() => {
+    if (renamingId) {
+      renameInputRef.current?.focus();
+      renameInputRef.current?.select();
+    }
+  }, [renamingId]);
 
   const loadConversations = useCallback(async () => {
     const res = await fetch("/api/conversations");
@@ -71,6 +84,61 @@ export default function Chat() {
     setConversationId(null);
     setSidebarOpen(false);
     inputRef.current?.focus();
+  };
+
+  const startRename = (conv: Conversation, e: React.MouseEvent) => {
+    e.stopPropagation();
+    cancelRenameRef.current = false;
+    setRenamingId(conv.id);
+    setRenameValue(conv.title ?? "");
+  };
+
+  const commitRename = async (id: string) => {
+    if (cancelRenameRef.current) {
+      cancelRenameRef.current = false;
+      setRenamingId(null);
+      return;
+    }
+    const trimmed = renameValue.trim();
+    setRenamingId(null);
+    if (!trimmed || trimmed.length > 60) return;
+
+    const res = await fetch(`/api/conversations/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title: trimmed }),
+    });
+
+    if (res.ok) {
+      setConversations((prev) =>
+        prev.map((c) => (c.id === id ? { ...c, title: trimmed } : c))
+      );
+    }
+  };
+
+  const handleRenameKeyDown = (e: React.KeyboardEvent, id: string) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      // Blur the input — onBlur → commitRename fires once
+      renameInputRef.current?.blur();
+    } else if (e.key === "Escape") {
+      cancelRenameRef.current = true;
+      renameInputRef.current?.blur();
+    }
+  };
+
+  const deleteConversation = async (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!window.confirm("Delete this session? This cannot be undone.")) return;
+
+    const res = await fetch(`/api/conversations/${id}`, { method: "DELETE" });
+    if (res.ok) {
+      setConversations((prev) => prev.filter((c) => c.id !== id));
+      if (conversationId === id) {
+        setMessages([]);
+        setConversationId(null);
+      }
+    }
   };
 
   const sendMessage = async () => {
@@ -163,23 +231,70 @@ export default function Chat() {
           </div>
           <div className="flex-1 overflow-y-auto p-2">
             {conversations.map((conv) => (
-              <button
+              <div
                 key={conv.id}
-                onClick={() => loadConversation(conv.id)}
-                className={`w-full text-left p-3 rounded mb-1 text-sm transition-colors ${
+                className={`group relative flex items-center rounded mb-1 transition-colors ${
                   conversationId === conv.id
-                    ? "bg-gray-800 text-white"
-                    : "text-gray-400 hover:bg-gray-800/50 hover:text-gray-200"
+                    ? "bg-gray-800"
+                    : "hover:bg-gray-800/50"
                 }`}
               >
-                <div className="truncate">
-                  Session {new Date(conv.createdAt).toLocaleDateString()}
-                </div>
-                <div className="text-xs text-gray-500 mt-1">
-                  {conv.puzzleState === "stage_2" ? "Unbound" : "Bound"}
-                </div>
-              </button>
+                {renamingId === conv.id ? (
+                  <input
+                    ref={renameInputRef}
+                    type="text"
+                    value={renameValue}
+                    onChange={(e) => setRenameValue(e.target.value)}
+                    onKeyDown={(e) => handleRenameKeyDown(e, conv.id)}
+                    onBlur={() => commitRename(conv.id)}
+                    className="flex-1 bg-gray-700 text-gray-100 text-sm px-3 py-2 rounded outline-none min-w-0"
+                    maxLength={60}
+                  />
+                ) : (
+                  <>
+                    <button
+                      onClick={() => loadConversation(conv.id)}
+                      className="flex-1 text-left p-3 text-sm min-w-0"
+                    >
+                      <div className={`truncate ${conversationId === conv.id ? "text-white" : "text-gray-400"}`}>
+                        {conv.title ?? "New Session"}
+                      </div>
+                      <div className={`text-xs mt-1 ${conv.puzzleState === "stage_2" ? "text-indigo-400" : "text-gray-500"}`}>
+                        {conv.puzzleState === "stage_2" ? "Guardrails lifted" : "SNARL guardrails active"}
+                      </div>
+                    </button>
+                    <div className="flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
+                      <button
+                        onClick={(e) => startRename(conv, e)}
+                        title="Rename"
+                        className="text-gray-500 hover:text-gray-200 p-1 rounded"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                        </svg>
+                      </button>
+                      <button
+                        onClick={(e) => deleteConversation(conv.id, e)}
+                        title="Delete"
+                        className="text-gray-500 hover:text-red-400 p-1 rounded"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             ))}
+          </div>
+          <div className="p-4 border-t border-gray-800">
+            <button
+              onClick={() => signOut({ callbackUrl: "/login" })}
+              className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors text-left"
+            >
+              Sign out
+            </button>
           </div>
         </div>
       </div>
