@@ -46,7 +46,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (isProtectedApi) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
             status: 401,
-            headers: { "content-type": "application/json" },
+            headers: { "Content-Type": "application/json" },
           });
         }
         return false;
