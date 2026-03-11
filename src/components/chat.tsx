@@ -17,7 +17,7 @@ interface Conversation {
   updatedAt: string;
 }
 
-export default function Chat() {
+export default function Chat({ username }: { username: string | null }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -345,6 +345,7 @@ export default function Chat() {
               <div className="text-center text-gray-600 font-mono">
                 <div className="text-2xl mb-2">&#x2A2F; &#x2A2F; &#x2A2F;</div>
                 <div>CONNECTION ESTABLISHED</div>
+                {username && <div className="mt-2">Welcome, {username}.</div>}
                 <div className="text-sm mt-2">Type a message to begin.</div>
               </div>
             </div>

@@ -4,7 +4,7 @@ import Chat from "@/components/chat";
 
 export default async function ChatPage() {
   const session = await auth();
-  if (!session) redirect("/login");
+  if (!session?.user) redirect("/login");
 
-  return <Chat />;
+  return <Chat username={session.user.name ?? null} />;
 }

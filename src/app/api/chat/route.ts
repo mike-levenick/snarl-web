@@ -35,6 +35,8 @@ export async function POST(req: Request) {
     return new Response("Invalid conversation ID", { status: 400 });
   }
 
+  const isNewConversation = !conversationId;
+
   // Get or create conversation
   let convId = conversationId as string | undefined;
   let puzzleState = "initial";
@@ -111,7 +113,10 @@ export async function POST(req: Request) {
   }));
 
   const allowRestricted = puzzleState === "stage_2";
-  const systemPrompt = getSystemPrompt(session.user.name ?? undefined);
+  const systemPrompt = getSystemPrompt(session.user.name ?? undefined)
+    + (isNewConversation
+        ? "\n\n**This is the student's first message of this session. Open your response with a single brief in-character greeting using their name, then address their question. One sentence maximum for the greeting.**"
+        : "");
 
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
