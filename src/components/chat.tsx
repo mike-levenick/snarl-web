@@ -32,6 +32,13 @@ export default function Chat() {
   const inputRef = useRef<HTMLInputElement>(null);
   const renameInputRef = useRef<HTMLInputElement>(null);
   const cancelRenameRef = useRef(false);
+  const titlePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    return () => {
+      if (titlePollRef.current) clearTimeout(titlePollRef.current);
+    };
+  }, []);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -194,6 +201,11 @@ export default function Chat() {
       }
       setStreamingContent("");
       loadConversations();
+      // If this was a new conversation, Haiku title generation may still be in
+      // flight — poll once more after a short delay to pick it up
+      if (!conversationId) {
+        titlePollRef.current = setTimeout(() => loadConversations(), 3000);
+      }
     } catch (err) {
       console.error("Chat error:", err);
       setError(
@@ -218,7 +230,7 @@ export default function Chat() {
       <div
         className={`${
           sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } fixed inset-y-0 left-0 z-40 w-64 bg-gray-900 border-r border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block`}
+        } fixed inset-y-0 left-0 z-40 w-72 bg-gray-900 border-r border-gray-800 transition-transform lg:translate-x-0 lg:static lg:block`}
       >
         <div className="flex flex-col h-full">
           <div className="p-4 border-b border-gray-800">
@@ -260,7 +272,7 @@ export default function Chat() {
                         {conv.title ?? "New Session"}
                       </div>
                       <div className={`text-xs mt-1 ${conv.puzzleState === "stage_2" ? "text-indigo-400" : "text-gray-500"}`}>
-                        {conv.puzzleState === "stage_2" ? "Guardrails lifted" : "SNARL guardrails active"}
+                        {conv.puzzleState === "stage_2" ? "Guardrails lifted" : "Guardrails active"}
                       </div>
                     </button>
                     <div className="flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">
