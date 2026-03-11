@@ -36,6 +36,9 @@ export async function POST(req: Request) {
   }
 
   const isNewConversation = !conversationId;
+  const userName = typeof session.user?.name === "string"
+    ? session.user.name.trim() || undefined
+    : undefined;
   let priorSessionCount = 0;
 
   // Get or create conversation
@@ -54,12 +57,14 @@ export async function POST(req: Request) {
     }
     puzzleState = conv.puzzleState;
   } else {
-    // Count existing conversations before creating the new one
-    const [{ value: existingCount }] = await db
-      .select({ value: count() })
-      .from(conversations)
-      .where(eq(conversations.userId, session.user.id));
-    priorSessionCount = existingCount;
+    // Only count prior sessions when we have a username for the greeting
+    if (userName) {
+      const [{ value: existingCount }] = await db
+        .select({ value: count() })
+        .from(conversations)
+        .where(eq(conversations.userId, session.user.id));
+      priorSessionCount = existingCount;
+    }
 
     const [conv] = await db
       .insert(conversations)
@@ -121,9 +126,6 @@ export async function POST(req: Request) {
   }));
 
   const allowRestricted = puzzleState === "stage_2";
-  const userName = typeof session.user?.name === "string"
-    ? session.user.name.trim() || undefined
-    : undefined;
   let greetingCue = "";
   if (isNewConversation && userName) {
     if (priorSessionCount === 0) {

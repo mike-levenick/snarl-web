@@ -345,7 +345,7 @@ export default function Chat({ username }: { username: string | null }) {
               <div className="text-center text-gray-600 font-mono">
                 <div className="text-2xl mb-2">&#x2A2F; &#x2A2F; &#x2A2F;</div>
                 <div>CONNECTION ESTABLISHED</div>
-                {username && <div className="mt-2">Welcome, {username}.</div>}
+                {username?.trim() && <div className="mt-2">Welcome, {username.trim()}.</div>}
                 <div className="text-sm mt-2">Type a message to begin.</div>
               </div>
             </div>
