@@ -55,7 +55,7 @@ export default function LoginPage() {
               onChange={(e) => setUsername(e.target.value)}
               placeholder="Username"
               required
-              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-indigo-600 transition-colors"
+              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-accent-600 transition-colors"
             />
           </div>
           <div>
@@ -65,13 +65,13 @@ export default function LoginPage() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
               required
-              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-indigo-600 transition-colors"
+              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-accent-600 transition-colors"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-mono text-sm py-3 rounded transition-colors"
+            className="w-full bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white font-mono text-sm py-3 rounded transition-colors"
           >
             {loading ? "Connecting..." : "Connect"}
           </button>
@@ -79,7 +79,7 @@ export default function LoginPage() {
 
         <p className="text-center text-gray-600 text-sm font-mono mt-6">
           No account?{" "}
-          <Link href="/register" className="text-indigo-400 hover:text-indigo-300">
+          <Link href="/register" className="text-accent-400 hover:text-accent-300">
             Register
           </Link>
         </p>

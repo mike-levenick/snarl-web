@@ -18,7 +18,7 @@ export default async function Home() {
         <div className="flex gap-4 justify-center">
           <Link
             href="/login"
-            className="px-6 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-sm transition-colors"
+            className="px-6 py-3 bg-accent-600 hover:bg-accent-700 text-white rounded text-sm transition-colors"
           >
             Connect
           </Link>

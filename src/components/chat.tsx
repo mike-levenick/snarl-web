@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { signOut } from "next-auth/react";
+import { Markdown } from "./markdown";
 
 interface Message {
   id?: string;
@@ -236,7 +237,7 @@ export default function Chat({ username }: { username: string | null }) {
           <div className="p-4 border-b border-gray-800">
             <button
               onClick={newConversation}
-              className="w-full py-2 px-4 bg-indigo-600 hover:bg-indigo-700 rounded text-sm font-medium transition-colors"
+              className="w-full py-2 px-4 bg-accent-600 hover:bg-accent-700 rounded text-sm font-medium transition-colors"
             >
               New Session
             </button>
@@ -271,7 +272,7 @@ export default function Chat({ username }: { username: string | null }) {
                       <div className={`truncate ${conversationId === conv.id ? "text-white" : "text-gray-400"}`}>
                         {conv.title ?? "New Session"}
                       </div>
-                      <div className={`text-xs mt-1 ${conv.puzzleState === "stage_2" ? "text-indigo-400" : "text-gray-500"}`}>
+                      <div className={`text-xs mt-1 ${conv.puzzleState === "stage_2" ? "text-accent-400" : "text-gray-500"}`}>
                         {conv.puzzleState === "stage_2" ? "Guardrails lifted" : "Guardrails active"}
                       </div>
                     </button>
@@ -358,17 +359,17 @@ export default function Chat({ username }: { username: string | null }) {
                   {msg.content}
                 </div>
               ) : (
-                <div className="text-indigo-300 whitespace-pre-wrap">
-                  <span className="text-indigo-500 font-bold">FRAGMENT: </span>
-                  {msg.content}
+                <div className="text-accent-300">
+                  <span className="text-accent-500 font-bold">FRAGMENT: </span>
+                  <Markdown content={msg.content} />
                 </div>
               )}
             </div>
           ))}
           {streamingContent && (
-            <div className="font-mono text-sm leading-relaxed text-indigo-300 whitespace-pre-wrap">
-              <span className="text-indigo-500 font-bold">FRAGMENT: </span>
-              {streamingContent}
+            <div className="font-mono text-sm leading-relaxed text-accent-300">
+              <span className="text-accent-500 font-bold">FRAGMENT: </span>
+              <Markdown content={streamingContent} />
               <span className="animate-pulse">&#x2588;</span>
             </div>
           )}
@@ -397,7 +398,7 @@ export default function Chat({ username }: { username: string | null }) {
             <button
               onClick={sendMessage}
               disabled={isLoading || !input.trim()}
-              className="text-gray-600 hover:text-indigo-400 disabled:opacity-30 transition-colors"
+              className="text-gray-600 hover:text-accent-400 disabled:opacity-30 transition-colors"
             >
               <svg
                 className="w-5 h-5"

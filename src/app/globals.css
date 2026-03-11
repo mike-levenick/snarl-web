@@ -2,4 +2,11 @@
 
 @theme inline {
   --font-mono: var(--font-geist-mono);
+
+  /* Accent palette — "white" SNARL (Risia/Ice) */
+  --color-accent-300: oklch(0.765 0.108 277.023);
+  --color-accent-400: oklch(0.673 0.143 274.052);
+  --color-accent-500: oklch(0.585 0.158 274.966);
+  --color-accent-600: oklch(0.511 0.170 276.966);
+  --color-accent-700: oklch(0.457 0.157 278.182);
 }
