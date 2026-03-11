@@ -121,17 +121,20 @@ export async function POST(req: Request) {
   }));
 
   const allowRestricted = puzzleState === "stage_2";
+  const userName = typeof session.user?.name === "string"
+    ? session.user.name.trim() || undefined
+    : undefined;
   let greetingCue = "";
-  if (isNewConversation) {
+  if (isNewConversation && userName) {
     if (priorSessionCount === 0) {
-      greetingCue = "\n\n**This is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.**";
+      greetingCue = "\n\nThis is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.";
     } else if (priorSessionCount <= 3) {
-      greetingCue = "\n\n**This student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.**";
+      greetingCue = "\n\nThis student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.";
     } else {
-      greetingCue = `\n\n**This student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.**`;
+      greetingCue = `\n\nThis student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`;
     }
   }
-  const systemPrompt = getSystemPrompt(session.user.name ?? undefined) + greetingCue;
+  const systemPrompt = getSystemPrompt(userName) + greetingCue;
 
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";

@@ -1,11 +1,5 @@
 # Project SNARL Web
 
-## Memory
-Persistent memory for this project lives at:
-`~/.claude/projects/-Users-mlev-nosync-snarl-web/memory/MEMORY.md`
-
-Always read and update that file at the start and end of sessions.
-
 Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Players chat with "Fragment" — an in-character AI librarian powered by Claude via the Anthropic API, with RAG over a markdown knowledge base and a two-stage puzzle system.
 
 ## Tech Stack
