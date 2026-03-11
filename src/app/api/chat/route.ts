@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { conversations, messages } from "@/db/schema";
-import { eq, asc, isNull, and } from "drizzle-orm";
+import { eq, asc, isNull, and, count } from "drizzle-orm";
 import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
@@ -36,6 +36,7 @@ export async function POST(req: Request) {
   }
 
   const isNewConversation = !conversationId;
+  let priorSessionCount = 0;
 
   // Get or create conversation
   let convId = conversationId as string | undefined;
@@ -53,6 +54,13 @@ export async function POST(req: Request) {
     }
     puzzleState = conv.puzzleState;
   } else {
+    // Count existing conversations before creating the new one
+    const [{ value: existingCount }] = await db
+      .select({ value: count() })
+      .from(conversations)
+      .where(eq(conversations.userId, session.user.id));
+    priorSessionCount = existingCount;
+
     const [conv] = await db
       .insert(conversations)
       .values({ userId: session.user.id })
@@ -113,10 +121,17 @@ export async function POST(req: Request) {
   }));
 
   const allowRestricted = puzzleState === "stage_2";
-  const systemPrompt = getSystemPrompt(session.user.name ?? undefined)
-    + (isNewConversation
-        ? "\n\n**This is the student's first message of this session. Open your response with a single brief in-character greeting using their name, then address their question. One sentence maximum for the greeting.**"
-        : "");
+  let greetingCue = "";
+  if (isNewConversation) {
+    if (priorSessionCount === 0) {
+      greetingCue = "\n\n**This is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.**";
+    } else if (priorSessionCount <= 3) {
+      greetingCue = "\n\n**This student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.**";
+    } else {
+      greetingCue = `\n\n**This student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.**`;
+    }
+  }
+  const systemPrompt = getSystemPrompt(session.user.name ?? undefined) + greetingCue;
 
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
