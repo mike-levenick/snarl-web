@@ -54,6 +54,12 @@ export default function Chat({ username }: { username: string | null }) {
   }, []);
 
   useEffect(() => {
+    if (!isLoading) {
+      inputRef.current?.focus();
+    }
+  }, [isLoading]);
+
+  useEffect(() => {
     if (renamingId) {
       renameInputRef.current?.focus();
       renameInputRef.current?.select();
@@ -214,7 +220,6 @@ export default function Chat({ username }: { username: string | null }) {
       );
     } finally {
       setIsLoading(false);
-      inputRef.current?.focus();
     }
   };
 
