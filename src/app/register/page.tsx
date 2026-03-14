@@ -77,7 +77,7 @@ export default function RegisterPage() {
               required
               minLength={2}
               maxLength={30}
-              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-indigo-600 transition-colors"
+              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-accent-600 transition-colors"
             />
           </div>
           <div>
@@ -88,13 +88,13 @@ export default function RegisterPage() {
               placeholder="Choose a password"
               required
               minLength={6}
-              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-indigo-600 transition-colors"
+              className="w-full bg-gray-900 border border-gray-800 rounded px-4 py-3 text-gray-100 font-mono text-sm placeholder:text-gray-700 focus:outline-none focus:border-accent-600 transition-colors"
             />
           </div>
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-mono text-sm py-3 rounded transition-colors"
+            className="w-full bg-accent-600 hover:bg-accent-700 disabled:opacity-50 text-white font-mono text-sm py-3 rounded transition-colors"
           >
             {loading ? "Creating..." : "Create Account"}
           </button>
@@ -102,7 +102,7 @@ export default function RegisterPage() {
 
         <p className="text-center text-gray-600 text-sm font-mono mt-6">
           Already have an account?{" "}
-          <Link href="/login" className="text-indigo-400 hover:text-indigo-300">
+          <Link href="/login" className="text-accent-400 hover:text-accent-300">
             Log in
           </Link>
         </p>
