@@ -395,8 +395,7 @@ export default function Chat({ username }: { username: string | null }) {
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={isLoading ? "Awaiting response..." : "Speak to Fragment..."}
-              disabled={isLoading}
-              className="flex-1 bg-transparent text-gray-100 text-sm outline-none placeholder:text-gray-700 disabled:opacity-50"
+              className="flex-1 bg-transparent text-gray-100 text-sm outline-none placeholder:text-gray-700"
             />
             <button
               onClick={sendMessage}
