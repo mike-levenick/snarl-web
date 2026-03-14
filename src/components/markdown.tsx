@@ -1,18 +1,22 @@
-import { memo, type ReactNode } from "react";
+import { memo } from "react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 import type { Components } from "react-markdown";
 
 const DISALLOWED_ELEMENTS = ["h1", "h2", "h3", "h4", "h5", "h6", "hr", "img"];
 
-function makeComponents(prefix?: ReactNode): Components {
+function makeComponents(prefix?: string): Components {
   let prefixInserted = false;
+
+  const prefixNode = prefix ? (
+    <span className="text-accent-500 font-bold">{prefix} </span>
+  ) : null;
 
   return {
     p: ({ children }) => {
-      if (!prefixInserted && prefix) {
+      if (!prefixInserted && prefixNode) {
         prefixInserted = true;
-        return <p className="mb-3 last:mb-0">{prefix}{children}</p>;
+        return <p className="mb-3 last:mb-0">{prefixNode}{children}</p>;
       }
       return <p className="mb-3 last:mb-0">{children}</p>;
     },
@@ -20,12 +24,48 @@ function makeComponents(prefix?: ReactNode): Components {
       <strong className="font-bold text-accent-300">{children}</strong>
     ),
     em: ({ children }) => <em className="italic">{children}</em>,
-    ul: ({ children }) => (
-      <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>
-    ),
-    ol: ({ children }) => (
-      <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>
-    ),
+    ul: ({ children }) => {
+      if (!prefixInserted && prefixNode) {
+        prefixInserted = true;
+        return (
+          <>
+            <p className="mb-3">{prefixNode}</p>
+            <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>
+          </>
+        );
+      }
+      return <ul className="list-disc list-inside mb-3 space-y-1">{children}</ul>;
+    },
+    ol: ({ children }) => {
+      if (!prefixInserted && prefixNode) {
+        prefixInserted = true;
+        return (
+          <>
+            <p className="mb-3">{prefixNode}</p>
+            <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>
+          </>
+        );
+      }
+      return <ol className="list-decimal list-inside mb-3 space-y-1">{children}</ol>;
+    },
+    blockquote: ({ children }) => {
+      if (!prefixInserted && prefixNode) {
+        prefixInserted = true;
+        return (
+          <>
+            <p className="mb-3">{prefixNode}</p>
+            <blockquote className="border-l-2 border-accent-500 pl-3 italic text-gray-400 mb-3">
+              {children}
+            </blockquote>
+          </>
+        );
+      }
+      return (
+        <blockquote className="border-l-2 border-accent-500 pl-3 italic text-gray-400 mb-3">
+          {children}
+        </blockquote>
+      );
+    },
     code: ({ children, className }) => {
       const isBlock = className?.includes("language-");
       if (isBlock) {
@@ -42,17 +82,12 @@ function makeComponents(prefix?: ReactNode): Components {
         {children}
       </pre>
     ),
-    blockquote: ({ children }) => (
-      <blockquote className="border-l-2 border-accent-500 pl-3 italic text-gray-400 mb-3">
-        {children}
-      </blockquote>
-    ),
   };
 }
 
 const defaultComponents = makeComponents();
 
-function MarkdownRenderer({ content, prefix }: { content: string; prefix?: ReactNode }) {
+function MarkdownRenderer({ content, prefix }: { content: string; prefix?: string }) {
   const components = prefix ? makeComponents(prefix) : defaultComponents;
 
   return (

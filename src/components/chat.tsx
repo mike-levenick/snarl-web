@@ -360,20 +360,14 @@ export default function Chat({ username }: { username: string | null }) {
                 </div>
               ) : (
                 <div className="text-accent-300">
-                  <Markdown
-                    content={msg.content}
-                    prefix={<span className="text-accent-500 font-bold">FRAGMENT: </span>}
-                  />
+                  <Markdown content={msg.content} prefix="FRAGMENT:" />
                 </div>
               )}
             </div>
           ))}
           {streamingContent && (
             <div className="font-mono text-sm leading-relaxed text-accent-300">
-              <Markdown
-                content={streamingContent}
-                prefix={<span className="text-accent-500 font-bold">FRAGMENT: </span>}
-              />
+              <Markdown content={streamingContent} prefix="FRAGMENT:" />
               <span className="animate-pulse">&#x2588;</span>
             </div>
           )}
