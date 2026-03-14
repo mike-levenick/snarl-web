@@ -54,10 +54,10 @@ export default function Chat({ username }: { username: string | null }) {
   }, []);
 
   useEffect(() => {
-    if (!isLoading) {
+    if (!isLoading && !renamingId) {
       inputRef.current?.focus();
     }
-  }, [isLoading]);
+  }, [isLoading, renamingId]);
 
   useEffect(() => {
     if (renamingId) {
