@@ -50,10 +50,6 @@ export default function Chat({ username }: { username: string | null }) {
   }, [messages, streamingContent]);
 
   useEffect(() => {
-    inputRef.current?.focus();
-  }, []);
-
-  useEffect(() => {
     if (!isLoading && !renamingId) {
       inputRef.current?.focus();
     }
