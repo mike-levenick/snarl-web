@@ -121,7 +121,7 @@ export function search(
 
 export function getContext(
   query: string,
-  maxChars = 2000,
+  maxChars = 1000,
   allowRestricted = false
 ): string | null {
   const results = search(query, 2, maxChars, allowRestricted);
