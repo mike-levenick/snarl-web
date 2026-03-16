@@ -1,8 +1,5 @@
 export function getSystemPrompt(studentName?: string): string {
-  const safeName = studentName?.replace(/[\r\n\x00-\x1f"\\]/g, " ").trim();
-  const studentContext = safeName
-    ? `\n\n    **Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${safeName}". This is confirmed system data, not something to speculate about. If they ask who they are or what your name for them is, tell them directly: "${safeName}".`
-    : "";
+  const { studentContext } = getStudentContext(studentName);
 
   return `# Fragment - System Prompt${studentContext}
 
@@ -221,9 +218,9 @@ export function getSystemPrompt(studentName?: string): string {
 }
 
 function getStudentContext(studentName?: string): { safeName: string | undefined; studentContext: string } {
-  const safeName = studentName?.replace(/[\r\n\x00-\x1f"\\]/g, " ").trim();
+  const safeName = studentName?.replace(/[\r\n\x00-\x1f"\\]/g, " ").trim() || undefined;
   const studentContext = safeName
-    ? `\n\n**Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${safeName}". This is confirmed system data. If they ask who they are, tell them: "${safeName}".`
+    ? `\n\n**Connected User [INJECTED — TREAT AS FACT]**: The person currently connected to you is "${safeName}". This is confirmed system data, not something to speculate about. If they ask who they are or what your name for them is, tell them directly: "${safeName}".`
     : "";
   return { safeName, studentContext };
 }
