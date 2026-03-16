@@ -143,7 +143,13 @@ export async function POST(req: Request) {
 
   const result = streamText({
     model,
-    system: systemPrompt,
+    system: {
+      role: "system" as const,
+      content: systemPrompt,
+      providerOptions: {
+        anthropic: { cacheControl: { type: "ephemeral" } },
+      },
+    },
     messages: historyMessages,
     maxOutputTokens: 1000,
     stopWhen: stepCountIs(4),
