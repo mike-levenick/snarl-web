@@ -4,6 +4,8 @@ import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
+const RESERVED_USERNAMES = ["thessarian", "marcus", "lyralei", "kess", "velani"];
+
 export async function POST(req: Request) {
   let body: { username?: unknown; password?: unknown };
   try {
@@ -32,6 +34,13 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Password must be at least 6 characters" },
       { status: 400 }
+    );
+  }
+
+  if (RESERVED_USERNAMES.includes(username.toLowerCase())) {
+    return NextResponse.json(
+      { error: "Username already taken" },
+      { status: 409 }
     );
   }
 

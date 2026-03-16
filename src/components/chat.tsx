@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { signOut } from "next-auth/react";
+import Link from "next/link";
 import { Markdown } from "./markdown";
 
 interface Message {
@@ -18,7 +19,7 @@ interface Conversation {
   updatedAt: string;
 }
 
-export default function Chat({ username }: { username: string | null }) {
+export default function Chat({ username, role }: { username: string | null; role: string }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -302,7 +303,15 @@ export default function Chat({ username }: { username: string | null }) {
               </div>
             ))}
           </div>
-          <div className="p-4 border-t border-gray-800">
+          <div className="p-4 border-t border-gray-800 space-y-1">
+            {role === "admin" && (
+              <Link
+                href="/admin"
+                className="block w-full py-2 px-4 text-sm text-accent-400 hover:text-accent-300 hover:bg-gray-800 rounded transition-colors"
+              >
+                Admin Panel
+              </Link>
+            )}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
               className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors text-left"
