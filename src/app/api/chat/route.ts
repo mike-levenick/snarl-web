@@ -165,7 +165,7 @@ export async function POST(req: Request) {
             ),
         }),
         execute: async ({ query }) => {
-          const context = getContext(query, 1500, allowRestricted);
+          const context = getContext(query, 1000, allowRestricted);
           return (
             context ??
             "No relevant information found in the archives for this query. Try different search terms."

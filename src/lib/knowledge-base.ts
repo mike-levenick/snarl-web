@@ -124,7 +124,7 @@ export function getContext(
   maxChars = 2000,
   allowRestricted = false
 ): string | null {
-  const results = search(query, 3, maxChars, allowRestricted);
+  const results = search(query, 2, maxChars, allowRestricted);
 
   if (results.length === 0) return null;
 
