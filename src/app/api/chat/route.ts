@@ -9,7 +9,7 @@ import { anthropic } from "@ai-sdk/anthropic";
 import { streamText, generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 
-const MAX_HISTORY = 14;
+const MAX_HISTORY = 12;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
