@@ -77,7 +77,7 @@ export async function POST(req: Request) {
     void (async () => {
       try {
         const { text } = await generateText({
-          model: anthropic(process.env.CLAUDE_MODEL_ID ?? "claude-haiku-4-5-20251001"),
+          model: anthropic("claude-haiku-4-5-20251001"),
           prompt: `Generate a short title (3–6 words) for a conversation that begins with this message. Reply with only the title, no quotes, no trailing punctuation.\n\nMessage: ${msgForTitle}`,
           maxOutputTokens: 20,
         });
