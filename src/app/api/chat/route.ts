@@ -2,7 +2,7 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { conversations, messages } from "@/db/schema";
 import { eq, asc, isNull, and, count } from "drizzle-orm";
-import { getSystemPrompt } from "@/lib/prompt";
+import { getPromptForModel } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
 import { anthropic } from "@ai-sdk/anthropic";
@@ -136,11 +136,10 @@ export async function POST(req: Request) {
       greetingCue = `\n\nThis student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`;
     }
   }
-  const systemPrompt = getSystemPrompt(userName) + greetingCue;
-
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
   const model = anthropic(modelId);
+  const systemPrompt = getPromptForModel(modelId, userName) + greetingCue;
 
   const result = streamText({
     model,
