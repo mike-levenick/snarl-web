@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import { ADMIN_USERNAMES } from "@/lib/admin-accounts";
 
 export async function POST(req: Request) {
   let body: { username?: unknown; password?: unknown };
@@ -32,6 +33,13 @@ export async function POST(req: Request) {
     return NextResponse.json(
       { error: "Password must be at least 6 characters" },
       { status: 400 }
+    );
+  }
+
+  if (ADMIN_USERNAMES.includes(username.toLowerCase())) {
+    return NextResponse.json(
+      { error: "Username already taken" },
+      { status: 409 }
     );
   }
 

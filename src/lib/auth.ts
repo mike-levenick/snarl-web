@@ -31,7 +31,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         const valid = await bcrypt.compare(password, user.passwordHash);
         if (!valid) return null;
 
-        return { id: user.id, name: user.username };
+        return { id: user.id, name: user.username, role: user.role };
       },
     }),
   ],
@@ -39,10 +39,12 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
     authorized({ auth: session, request }) {
       const isLoggedIn = !!session?.user;
       const pathname = request.nextUrl.pathname;
-      const isProtectedPage = pathname.startsWith("/chat");
+      const isProtectedPage =
+        pathname.startsWith("/chat") || pathname.startsWith("/admin");
       const isProtectedApi =
         pathname.startsWith("/api/chat") ||
-        pathname.startsWith("/api/conversations");
+        pathname.startsWith("/api/conversations") ||
+        pathname.startsWith("/api/admin");
       if (!isLoggedIn && (isProtectedPage || isProtectedApi)) {
         if (isProtectedApi) {
           return new Response(JSON.stringify({ error: "Unauthorized" }), {
@@ -58,6 +60,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
       if (user) {
         token.id = user.id;
         token.name = user.name;
+        token.role = user.role ?? "user";
       }
       return token;
     },
@@ -67,6 +70,7 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
         if (typeof token.name === "string") {
           session.user.name = token.name;
         }
+        session.user.role = (token.role as string) ?? "user";
       }
       return session;
     },
