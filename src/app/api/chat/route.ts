@@ -189,6 +189,7 @@ export async function POST(req: Request) {
   return result.toTextStreamResponse({
     headers: {
       "X-Conversation-Id": convId,
+      "X-Model-Id": modelId,
     },
   });
 }
