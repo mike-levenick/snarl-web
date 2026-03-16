@@ -154,6 +154,7 @@ export async function POST(req: Request) {
     maxOutputTokens: 1000,
     stopWhen: stepCountIs(4),
     tools: {
+      // TODO: trim this description — the system prompt already tells the model when to search
       search_knowledge: tool({
         description:
           "Search Fragment's knowledge for information about people, places, lore, and more. ALWAYS use this tool when someone asks about specific people/NPCs by name, locations, religions, organizations, historical events, or any proper nouns.",
