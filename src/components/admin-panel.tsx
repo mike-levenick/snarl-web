@@ -124,7 +124,7 @@ export default function AdminPanel() {
                 <tr className="bg-gray-900 text-gray-500 text-left">
                   <th className="px-4 py-3">Username</th>
                   <th className="px-4 py-3">Role</th>
-                  <th className="px-4 py-3">Sessions</th>
+                  <th className="px-4 py-3">Conversations</th>
                   <th className="px-4 py-3">Created</th>
                   <th className="px-4 py-3 text-right">Actions</th>
                 </tr>
@@ -188,24 +188,26 @@ export default function AdminPanel() {
                           </div>
                         ) : (
                           <>
-                            <button
-                              onClick={() => {
-                                clearMessages();
-                                setResetUserId(user.id);
-                              }}
-                              className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
-                            >
-                              Reset password
-                            </button>
                             {user.role !== "admin" && (
-                              <button
-                                onClick={() =>
-                                  handleDelete(user.id, user.username)
-                                }
-                                className="text-xs text-gray-500 hover:text-red-400 transition-colors"
-                              >
-                                Delete
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => {
+                                    clearMessages();
+                                    setResetUserId(user.id);
+                                  }}
+                                  className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+                                >
+                                  Reset password
+                                </button>
+                                <button
+                                  onClick={() =>
+                                    handleDelete(user.id, user.username)
+                                  }
+                                  className="text-xs text-gray-500 hover:text-red-400 transition-colors"
+                                >
+                                  Delete
+                                </button>
+                              </>
                             )}
                           </>
                         )}

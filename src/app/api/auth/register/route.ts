@@ -3,8 +3,7 @@ import { db } from "@/db";
 import { users } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
-
-const RESERVED_USERNAMES = ["thessarian", "marcus", "lyralei", "kess", "velani"];
+import { ADMIN_USERNAMES } from "@/lib/admin-accounts";
 
 export async function POST(req: Request) {
   let body: { username?: unknown; password?: unknown };
@@ -37,7 +36,7 @@ export async function POST(req: Request) {
     );
   }
 
-  if (RESERVED_USERNAMES.includes(username.toLowerCase())) {
+  if (ADMIN_USERNAMES.includes(username.toLowerCase())) {
     return NextResponse.json(
       { error: "Username already taken" },
       { status: 409 }

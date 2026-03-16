@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { db } from "@/db";
-import { users, conversations, messages } from "@/db/schema";
-import { eq, inArray } from "drizzle-orm";
+import { users } from "@/db/schema";
+import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 
 const UUID_RE =
@@ -35,7 +35,7 @@ export async function PATCH(
   }
 
   const [user] = await db
-    .select()
+    .select({ id: users.id, role: users.role })
     .from(users)
     .where(eq(users.id, id))
     .limit(1);
@@ -70,7 +70,7 @@ export async function DELETE(
   }
 
   const [user] = await db
-    .select()
+    .select({ id: users.id, role: users.role })
     .from(users)
     .where(eq(users.id, id))
     .limit(1);
@@ -86,18 +86,7 @@ export async function DELETE(
     );
   }
 
-  // Cascade: messages → conversations → user
-  const userConversations = await db
-    .select({ id: conversations.id })
-    .from(conversations)
-    .where(eq(conversations.userId, id));
-
-  const convIds = userConversations.map((c) => c.id);
-  if (convIds.length > 0) {
-    await db.delete(messages).where(inArray(messages.conversationId, convIds));
-    await db.delete(conversations).where(eq(conversations.userId, id));
-  }
-
+  // Conversations and messages cascade-delete via FK onDelete
   await db.delete(users).where(eq(users.id, id));
 
   return Response.json({ success: true });

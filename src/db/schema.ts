@@ -12,7 +12,7 @@ export const conversations = pgTable("conversations", {
   id: uuid("id").defaultRandom().primaryKey(),
   userId: uuid("user_id")
     .notNull()
-    .references(() => users.id),
+    .references(() => users.id, { onDelete: "cascade" }),
   title: text("title"),
   puzzleState: text("puzzle_state").default("initial").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),
@@ -23,7 +23,7 @@ export const messages = pgTable("messages", {
   id: uuid("id").defaultRandom().primaryKey(),
   conversationId: uuid("conversation_id")
     .notNull()
-    .references(() => conversations.id),
+    .references(() => conversations.id, { onDelete: "cascade" }),
   role: text("role", { enum: ["user", "assistant"] }).notNull(),
   content: text("content").notNull(),
   createdAt: timestamp("created_at").defaultNow().notNull(),

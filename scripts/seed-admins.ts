@@ -1,23 +1,16 @@
 import { neon } from "@neondatabase/serverless";
 import { drizzle } from "drizzle-orm/neon-http";
 import { users } from "../src/db/schema";
+import { ADMIN_ACCOUNTS } from "../src/lib/admin-accounts";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
 import "dotenv/config";
-
-const ADMINS = [
-  { username: "thessarian", envVar: "ADMIN_THESSARIAN_PASSWORD" },
-  { username: "marcus", envVar: "ADMIN_MARCUS_PASSWORD" },
-  { username: "lyralei", envVar: "ADMIN_LYRALEI_PASSWORD" },
-  { username: "kess", envVar: "ADMIN_KESS_PASSWORD" },
-  { username: "velani", envVar: "ADMIN_VELANI_PASSWORD" },
-];
 
 async function main() {
   const sql = neon(process.env.POSTGRES_URL!);
   const db = drizzle(sql);
 
-  for (const { username, envVar } of ADMINS) {
+  for (const { username, envVar } of ADMIN_ACCOUNTS) {
     const password = process.env[envVar];
     if (!password) {
       console.log(`Skipping ${username} — ${envVar} not set`);
