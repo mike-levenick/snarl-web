@@ -5,9 +5,19 @@ import { eq, asc, isNull, and, count } from "drizzle-orm";
 import { getPromptForModel } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText, generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
+
+const anthropic = createAnthropic({
+  fetch: async (url, options) => {
+    if (typeof options?.body === "string") {
+      const body = JSON.parse(options.body);
+      console.log("[debug] Anthropic API system field:", JSON.stringify(body.system, null, 2));
+    }
+    return fetch(url, options);
+  },
+});
 
 const MAX_HISTORY = 12;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -157,6 +167,12 @@ export async function POST(req: Request) {
   if (greetingCue) {
     systemMessages.push({ role: "system", content: greetingCue });
   }
+
+  console.log("[debug] systemMessages providerOptions:", systemMessages.map(m => ({
+    hasProviderOptions: !!m.providerOptions,
+    providerOptions: m.providerOptions,
+    contentLength: m.content.length,
+  })));
 
   const result = streamText({
     model,
