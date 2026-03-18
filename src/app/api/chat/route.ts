@@ -185,14 +185,8 @@ export async function POST(req: Request) {
         },
       }),
     },
-    onFinish: async ({ text, usage, providerMetadata }) => {
-      const cacheInfo = providerMetadata?.anthropic;
-      console.log("[cache]", {
-        inputTokens: usage?.inputTokens,
-        outputTokens: usage?.outputTokens,
-        cacheCreationInputTokens: cacheInfo?.cacheCreationInputTokens ?? 0,
-        cacheReadInputTokens: cacheInfo?.cacheReadInputTokens ?? 0,
-      });
+    onFinish: async ({ text, usage }) => {
+      console.log("[cache]", JSON.stringify(usage, null, 2));
       if (text) {
         try {
           await db.insert(messages).values({
