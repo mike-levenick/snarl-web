@@ -139,17 +139,28 @@ export async function POST(req: Request) {
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
   const model = anthropic(modelId);
-  const systemPrompt = getPromptForModel(modelId, userName) + greetingCue;
+  const systemPrompt = getPromptForModel(modelId, userName);
 
-  const result = streamText({
-    model,
-    system: {
-      role: "system" as const,
+  const systemMessages: Array<{
+    role: "system";
+    content: string;
+    providerOptions?: { anthropic: { cacheControl: { type: "ephemeral" } } };
+  }> = [
+    {
+      role: "system",
       content: systemPrompt,
       providerOptions: {
         anthropic: { cacheControl: { type: "ephemeral" } },
       },
     },
+  ];
+  if (greetingCue) {
+    systemMessages.push({ role: "system", content: greetingCue });
+  }
+
+  const result = streamText({
+    model,
+    system: systemMessages,
     messages: historyMessages,
     maxOutputTokens: 1000,
     stopWhen: stepCountIs(4),
@@ -174,7 +185,14 @@ export async function POST(req: Request) {
         },
       }),
     },
-    onFinish: async ({ text }) => {
+    onFinish: async ({ text, usage, providerMetadata }) => {
+      const cacheInfo = providerMetadata?.anthropic;
+      console.log("[cache]", {
+        inputTokens: usage?.inputTokens,
+        outputTokens: usage?.outputTokens,
+        cacheCreationInputTokens: cacheInfo?.cacheCreationInputTokens ?? 0,
+        cacheReadInputTokens: cacheInfo?.cacheReadInputTokens ?? 0,
+      });
       if (text) {
         try {
           await db.insert(messages).values({
