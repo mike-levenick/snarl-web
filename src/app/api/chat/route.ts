@@ -2,14 +2,24 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { conversations, messages } from "@/db/schema";
 import { eq, asc, isNull, and, count } from "drizzle-orm";
-import { getSystemPrompt } from "@/lib/prompt";
+import { getPromptForModel } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
-import { anthropic } from "@ai-sdk/anthropic";
+import { createAnthropic } from "@ai-sdk/anthropic";
 import { streamText, generateText, tool, stepCountIs } from "ai";
 import { z } from "zod";
 
-const MAX_HISTORY = 14;
+const anthropic = createAnthropic({
+  fetch: async (url, options) => {
+    if (typeof options?.body === "string") {
+      const body = JSON.parse(options.body);
+      console.log("[debug] Anthropic API system field:", JSON.stringify(body.system, null, 2));
+    }
+    return fetch(url, options);
+  },
+});
+
+const MAX_HISTORY = 12;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export async function POST(req: Request) {
@@ -77,7 +87,7 @@ export async function POST(req: Request) {
     void (async () => {
       try {
         const { text } = await generateText({
-          model: anthropic(process.env.CLAUDE_MODEL_ID ?? "claude-haiku-4-5-20251001"),
+          model: anthropic("claude-haiku-4-5-20251001"),
           prompt: `Generate a short title (3–6 words) for a conversation that begins with this message. Reply with only the title, no quotes, no trailing punctuation.\n\nMessage: ${msgForTitle}`,
           maxOutputTokens: 20,
         });
@@ -136,19 +146,42 @@ export async function POST(req: Request) {
       greetingCue = `\n\nThis student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`;
     }
   }
-  const systemPrompt = getSystemPrompt(userName) + greetingCue;
-
   const modelId =
     process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
   const model = anthropic(modelId);
+  const systemPrompt = getPromptForModel(modelId, userName);
+
+  const systemMessages: Array<{
+    role: "system";
+    content: string;
+    providerOptions?: { anthropic: { cacheControl: { type: "ephemeral" } } };
+  }> = [
+    {
+      role: "system",
+      content: systemPrompt,
+      providerOptions: {
+        anthropic: { cacheControl: { type: "ephemeral" } },
+      },
+    },
+  ];
+  if (greetingCue) {
+    systemMessages.push({ role: "system", content: greetingCue });
+  }
+
+  console.log("[debug] systemMessages providerOptions:", systemMessages.map(m => ({
+    hasProviderOptions: !!m.providerOptions,
+    providerOptions: m.providerOptions,
+    contentLength: m.content.length,
+  })));
 
   const result = streamText({
     model,
-    system: systemPrompt,
+    system: systemMessages,
     messages: historyMessages,
     maxOutputTokens: 1000,
     stopWhen: stepCountIs(4),
     tools: {
+      // TODO: trim this description — the system prompt already tells the model when to search
       search_knowledge: tool({
         description:
           "Search Fragment's knowledge for information about people, places, lore, and more. ALWAYS use this tool when someone asks about specific people/NPCs by name, locations, religions, organizations, historical events, or any proper nouns.",
@@ -160,7 +193,7 @@ export async function POST(req: Request) {
             ),
         }),
         execute: async ({ query }) => {
-          const context = getContext(query, 1500, allowRestricted);
+          const context = getContext(query, 1000, allowRestricted);
           return (
             context ??
             "No relevant information found in the archives for this query. Try different search terms."
@@ -168,7 +201,8 @@ export async function POST(req: Request) {
         },
       }),
     },
-    onFinish: async ({ text }) => {
+    onFinish: async ({ text, usage }) => {
+      console.log("[cache]", JSON.stringify(usage, null, 2));
       if (text) {
         try {
           await db.insert(messages).values({
@@ -190,6 +224,7 @@ export async function POST(req: Request) {
   return result.toTextStreamResponse({
     headers: {
       "X-Conversation-Id": convId,
+      "X-Model-Id": modelId,
     },
   });
 }
