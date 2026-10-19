@@ -5,12 +5,23 @@ import { eq, asc, isNull, and, count } from "drizzle-orm";
 import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
+import { shapeHistory } from "@/lib/history";
+import { getModelConfig, TITLE_MODEL_ID } from "@/lib/model-config";
+import {
+  LINE_TOO_LONG,
+  MAX_INPUT_CHARS,
+  STAGE_2_NOTE,
+  logError,
+  runTurn,
+} from "@/lib/llm";
 import { anthropic } from "@ai-sdk/anthropic";
-import { streamText, generateText, tool, stepCountIs } from "ai";
-import { z } from "zod";
+import { createTextStreamResponse, generateText } from "ai";
 
-const MAX_HISTORY = 14;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function jsonError(status: number, message: string) {
+  return Response.json({ error: message }, { status });
+}
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -22,17 +33,20 @@ export async function POST(req: Request) {
   try {
     body = await req.json();
   } catch {
-    return new Response("Invalid JSON", { status: 400 });
+    return jsonError(400, "Invalid JSON");
   }
 
   const { message, conversationId } = body;
 
-  if (!message || typeof message !== "string") {
-    return new Response("Message is required", { status: 400 });
+  if (!message || typeof message !== "string" || !message.trim()) {
+    return jsonError(400, "Message is required");
+  }
+  if (message.length > MAX_INPUT_CHARS) {
+    return jsonError(400, LINE_TOO_LONG);
   }
 
   if (conversationId && (typeof conversationId !== "string" || !UUID_RE.test(conversationId))) {
-    return new Response("Invalid conversation ID", { status: 400 });
+    return jsonError(400, "Invalid conversation ID");
   }
 
   const isNewConversation = !conversationId;
@@ -77,9 +91,12 @@ export async function POST(req: Request) {
     void (async () => {
       try {
         const { text } = await generateText({
-          model: anthropic(process.env.CLAUDE_MODEL_ID ?? "claude-haiku-4-5-20251001"),
+          model: anthropic(TITLE_MODEL_ID),
           prompt: `Generate a short title (3–6 words) for a conversation that begins with this message. Reply with only the title, no quotes, no trailing punctuation.\n\nMessage: ${msgForTitle}`,
-          maxOutputTokens: 20,
+          maxOutputTokens: 200,
+          providerOptions: {
+            anthropic: { effort: "low", thinking: { type: "disabled" } },
+          },
         });
         const title = text.trim().slice(0, 60);
         if (title) {
@@ -89,7 +106,7 @@ export async function POST(req: Request) {
             .where(and(eq(conversations.id, conv.id), isNull(conversations.title)));
         }
       } catch (err) {
-        console.error("Failed to generate conversation title:", err);
+        logError("title_error", err);
       }
     })();
   }
@@ -117,77 +134,66 @@ export async function POST(req: Request) {
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt));
 
-  // Trim to MAX_HISTORY (most recent messages)
-  const trimmedHistory = history.slice(-MAX_HISTORY);
+  const stage2 = puzzleState === "stage_2";
+  const historyMessages = shapeHistory(
+    history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
+    stage2
+  );
 
-  const historyMessages = trimmedHistory.map((m) => ({
-    role: m.role as "user" | "assistant",
-    content: m.content,
-  }));
-
-  const allowRestricted = puzzleState === "stage_2";
-  let greetingCue = "";
+  // Volatile instructions go in separate system messages after the cached
+  // prompt so the cache prefix stays byte-stable across turns.
+  const extraInstructions: string[] = [];
+  if (stage2) extraInstructions.push(STAGE_2_NOTE);
   if (isNewConversation && userName) {
     if (priorSessionCount === 0) {
-      greetingCue = "\n\nThis is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.";
+      extraInstructions.push("This is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.");
     } else if (priorSessionCount <= 3) {
-      greetingCue = "\n\nThis student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.";
+      extraInstructions.push("This student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.");
     } else {
-      greetingCue = `\n\nThis student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`;
+      extraInstructions.push(`This student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`);
     }
   }
-  const systemPrompt = getSystemPrompt(userName) + greetingCue;
 
-  const modelId =
-    process.env.CLAUDE_MODEL_ID || "claude-haiku-4-5-20251001";
-  const model = anthropic(modelId);
+  const { modelId, effort, debug } = getModelConfig();
+  const conversationIdForTurn = convId;
 
-  const result = streamText({
-    model,
-    system: systemPrompt,
-    messages: historyMessages,
-    maxOutputTokens: 1000,
-    stopWhen: stepCountIs(4),
-    tools: {
-      search_knowledge: tool({
-        description:
-          "Search Fragment's knowledge for information about people, places, lore, and more. ALWAYS use this tool when someone asks about specific people/NPCs by name, locations, religions, organizations, historical events, or any proper nouns.",
-        inputSchema: z.object({
-          query: z
-            .string()
-            .describe(
-              "The name, term, or topic to search for (e.g., 'Rynel Daetoris', 'Sovereign Host', 'Sharn')"
-            ),
-        }),
-        execute: async ({ query }) => {
-          const context = getContext(query, 1500, allowRestricted);
-          return (
-            context ??
-            "No relevant information found in the archives for this query. Try different search terms."
-          );
-        },
-      }),
+  const stream = runTurn(
+    {
+      model: anthropic(modelId),
+      effort,
+      systemPrompt: getSystemPrompt(userName),
+      extraInstructions,
+      history: historyMessages,
+      search: (query) => getContext(query, 1500, stage2),
+      debug,
+      abortSignal: req.signal,
     },
-    onFinish: async ({ text }) => {
-      if (text) {
+    {
+      // Runs before the response stream closes, so the write completes
+      // before the function is allowed to end. A failed turn leaves no
+      // assistant row.
+      onDone: async ({ storedText, outcome }) => {
+        if (debug) console.log("llm_turn", JSON.stringify({ outcome, model: modelId, effort }));
+        if (storedText === null) return;
         try {
           await db.insert(messages).values({
-            conversationId: convId,
+            conversationId: conversationIdForTurn,
             role: "assistant",
-            content: text,
+            content: storedText,
           });
           await db
             .update(conversations)
             .set({ updatedAt: new Date() })
-            .where(eq(conversations.id, convId));
+            .where(eq(conversations.id, conversationIdForTurn));
         } catch (err) {
-          console.error("Failed to persist assistant message:", err);
+          logError("persist_error", err);
         }
-      }
-    },
-  });
+      },
+    }
+  );
 
-  return result.toTextStreamResponse({
+  return createTextStreamResponse({
+    stream,
     headers: {
       "X-Conversation-Id": convId,
     },

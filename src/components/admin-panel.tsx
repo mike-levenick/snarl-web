@@ -31,6 +31,8 @@ export default function AdminPanel() {
   }, []);
 
   useEffect(() => {
+    // Fetch-on-mount; the loading flag flips before the await by design.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadUsers();
   }, [loadUsers]);
 

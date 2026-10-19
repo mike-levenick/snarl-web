@@ -5,6 +5,12 @@ import { signOut } from "next-auth/react";
 import Link from "next/link";
 import { Markdown } from "./markdown";
 
+class ChatRequestError extends Error {
+  constructor(public detail: string | null) {
+    super("Chat request failed");
+  }
+}
+
 interface Message {
   id?: string;
   role: "user" | "assistant";
@@ -72,6 +78,8 @@ export default function Chat({ username, role }: { username: string | null; role
   }, []);
 
   useEffect(() => {
+    // Fetch-on-mount; state is set after the await, not synchronously.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadConversations();
   }, [loadConversations]);
 
@@ -127,7 +135,7 @@ export default function Chat({ username, role }: { username: string | null; role
     }
   };
 
-  const handleRenameKeyDown = (e: React.KeyboardEvent, id: string) => {
+  const handleRenameKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter") {
       e.preventDefault();
       // Blur the input — onBlur → commitRename fires once
@@ -173,7 +181,24 @@ export default function Chat({ username, role }: { username: string | null; role
         }),
       });
 
-      if (!res.ok) throw new Error("Chat request failed");
+      if (!res.ok) {
+        // 400s carry an in-character line in the body (e.g. input too long)
+        let detail: string | null = null;
+        if (res.status === 400) {
+          try {
+            detail = (await res.json())?.error ?? null;
+          } catch {
+            detail = null;
+          }
+        }
+        if (res.status === 400) {
+          // Nothing was saved server-side: take the message back off the
+          // screen and give the player their text back to edit.
+          setMessages((prev) => prev.filter((m) => m !== userMessage));
+          setInput(trimmed);
+        }
+        throw new ChatRequestError(detail);
+      }
 
       // Capture conversation ID from header
       const newConvId = res.headers.get("X-Conversation-Id");
@@ -213,7 +238,9 @@ export default function Chat({ username, role }: { username: string | null; role
     } catch (err) {
       console.error("Chat error:", err);
       setError(
-        "The magical energies surge with overwhelming power... The ancient network is strained. Wait a moment and speak again."
+        err instanceof ChatRequestError && err.detail
+          ? err.detail
+          : "The magical energies surge with overwhelming power... The ancient network is strained. Wait a moment and speak again."
       );
     } finally {
       setIsLoading(false);
@@ -260,7 +287,7 @@ export default function Chat({ username, role }: { username: string | null; role
                     type="text"
                     value={renameValue}
                     onChange={(e) => setRenameValue(e.target.value)}
-                    onKeyDown={(e) => handleRenameKeyDown(e, conv.id)}
+                    onKeyDown={handleRenameKeyDown}
                     onBlur={() => commitRename(conv.id)}
                     className="flex-1 bg-gray-700 text-gray-100 text-sm px-3 py-2 rounded outline-none min-w-0"
                     maxLength={60}
@@ -399,6 +426,7 @@ export default function Chat({ username, role }: { username: string | null; role
               value={input}
               onChange={(e) => setInput(e.target.value)}
               onKeyDown={handleKeyDown}
+              maxLength={2000}
               placeholder={isLoading ? "Awaiting response..." : "Speak to Fragment..."}
               className="flex-1 bg-transparent text-gray-100 text-sm outline-none placeholder:text-gray-700"
             />
