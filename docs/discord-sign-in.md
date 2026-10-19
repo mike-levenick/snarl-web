@@ -34,6 +34,7 @@ guilds, no messages.
 | --- | --- | --- |
 | `AUTH_DISCORD_ID` | Vercel: Production, Preview, Development. Local `.env`. | Client ID |
 | `AUTH_DISCORD_SECRET` | Same, marked **Sensitive** in Vercel. | Client Secret |
+| `ADMIN_DISCORD_IDS` | Same. Optional. | Comma-separated Discord user ids that become admin + admitted the moment they sign in, and are promoted if their account already exists. Get an id from Discord (Settings > Advanced > Developer Mode, right-click a name > Copy User ID) or from `users.discord_id`. |
 
 `NEXTAUTH_SECRET` (or `AUTH_SECRET`) must already be set; it also signs the
 Discord link cookie. After adding the variables, redeploy so the functions

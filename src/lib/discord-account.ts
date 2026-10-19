@@ -10,7 +10,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { ADMIN_USERNAMES } from "./admin-accounts";
+import { ADMIN_USERNAMES, adminDiscordIds } from "./admin-accounts";
 
 export interface DbUser {
   id: string;
@@ -23,7 +23,9 @@ export interface DiscordUserStore {
   /** Sets discord_id on the row only if it has none; returns the row on success. */
   linkIfUnlinked(userId: string, discordId: string): Promise<DbUser | null>;
   isUsernameTaken(username: string): Promise<boolean>;
-  create(username: string, discordId: string): Promise<DbUser>;
+  create(username: string, discordId: string, admin: boolean): Promise<DbUser>;
+  /** Make an existing row admin + admitted. */
+  promote(userId: string): Promise<DbUser | null>;
 }
 
 /** Thrown when the link request and the Discord identity disagree; Auth.js
@@ -74,6 +76,8 @@ export interface ResolveInput {
    * honoured only when both agree, so a stale link cookie on a shared browser
    * cannot bind the next visitor's Discord to someone else's account. */
   sessionUserId: string | null;
+  /** Discord ids that are admins by configuration; defaults to the env list. */
+  adminIds?: Set<string>;
 }
 
 export async function resolveDiscordUser(
@@ -82,18 +86,27 @@ export async function resolveDiscordUser(
 ): Promise<DbUser> {
   const linkUserId =
     input.linkUserId && input.sessionUserId === input.linkUserId ? input.linkUserId : null;
+  const isConfiguredAdmin = (input.adminIds ?? adminDiscordIds()).has(input.discordId);
 
   const linked = await store.findByDiscordId(input.discordId);
   if (linked) {
     if (linkUserId && linked.id !== linkUserId) {
       throw new DiscordLinkError("That Discord account is already bound to another student.");
     }
+    if (isConfiguredAdmin && linked.role !== "admin") {
+      return (await store.promote(linked.id)) ?? linked;
+    }
     return linked;
   }
 
   if (linkUserId) {
     const result = await store.linkIfUnlinked(linkUserId, input.discordId);
-    if (result) return result;
+    if (result) {
+      if (isConfiguredAdmin && result.role !== "admin") {
+        return (await store.promote(result.id)) ?? result;
+      }
+      return result;
+    }
     throw new DiscordLinkError("This account is already bound to a different Discord account.");
   }
 
@@ -101,7 +114,7 @@ export async function resolveDiscordUser(
     store.isUsernameTaken(n)
   );
   try {
-    return await store.create(username, input.discordId);
+    return await store.create(username, input.discordId, isConfiguredAdmin);
   } catch (err) {
     // Two first sign-ins at once (double click) or a username race: the
     // other request may have won, in which case its row is ours.
@@ -130,8 +143,19 @@ export const dbStore: DiscordUserStore = {
     const [row] = await db.select({ id: users.id }).from(users).where(eq(users.username, username)).limit(1);
     return !!row;
   },
-  async create(username, discordId) {
-    const [row] = await db.insert(users).values({ username, discordId }).returning(cols);
+  async create(username, discordId, admin) {
+    const [row] = await db
+      .insert(users)
+      .values({ username, discordId, ...(admin && { role: "admin", approved: true }) })
+      .returning(cols);
     return row;
+  },
+  async promote(userId) {
+    const [row] = await db
+      .update(users)
+      .set({ role: "admin", approved: true })
+      .where(eq(users.id, userId))
+      .returning(cols);
+    return row ?? null;
   },
 };
