@@ -4,6 +4,7 @@ import { useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { DiscordButton } from "@/components/discord-button";
 
 export default function RegisterPage() {
   const [username, setUsername] = useState("");
@@ -60,6 +61,14 @@ export default function RegisterPage() {
           <p className="text-sm text-gray-600 mt-1">
             Create your identity
           </p>
+        </div>
+
+        <DiscordButton />
+
+        <div className="flex items-center gap-3 my-6 text-gray-700 font-mono text-xs">
+          <div className="flex-1 border-t border-gray-800" />
+          or with a password
+          <div className="flex-1 border-t border-gray-800" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">

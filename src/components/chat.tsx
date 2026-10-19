@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { signOut } from "next-auth/react";
+import { signIn, signOut } from "next-auth/react";
 import Link from "next/link";
 import { Markdown } from "./markdown";
 
@@ -25,7 +25,15 @@ interface Conversation {
   updatedAt: string;
 }
 
-export default function Chat({ username, role }: { username: string | null; role: string }) {
+export default function Chat({
+  username,
+  role,
+  discordLinked,
+}: {
+  username: string | null;
+  role: string;
+  discordLinked: boolean;
+}) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -96,6 +104,13 @@ export default function Chat({ username, role }: { username: string | null; role
       setConversationId(id);
       setSidebarOpen(false);
     }
+  };
+
+  // Remember who is asking (signed cookie), then hand off to Discord. The
+  // JWT callback attaches the Discord id to this account on the way back.
+  const linkDiscord = async () => {
+    const res = await fetch("/api/auth/link-discord", { method: "POST" });
+    if (res.ok) await signIn("discord", { callbackUrl: "/chat" });
   };
 
   const newConversation = () => {
@@ -338,6 +353,15 @@ export default function Chat({ username, role }: { username: string | null; role
               >
                 Admin Panel
               </Link>
+            )}
+            {!discordLinked && (
+              <button
+                onClick={linkDiscord}
+                className="w-full py-2 px-4 text-sm text-gray-400 hover:text-white hover:bg-gray-800 rounded transition-colors text-left"
+                title="Sign in with Discord next time instead of a password"
+              >
+                Link Discord
+              </button>
             )}
             <button
               onClick={() => signOut({ callbackUrl: "/login" })}
