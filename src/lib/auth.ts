@@ -27,7 +27,7 @@ async function pendingLinkUserId(): Promise<string | null> {
   } catch {
     return null;
   }
-  const userId = verifyLinkToken(jar.get(LINK_COOKIE)?.value);
+  const userId = await verifyLinkToken(jar.get(LINK_COOKIE)?.value);
   if (userId) {
     try {
       jar.delete(LINK_COOKIE);

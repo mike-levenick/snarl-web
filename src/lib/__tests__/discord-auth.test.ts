@@ -5,27 +5,27 @@ import { pickUsername } from "../discord-account";
 const KEY = "test-secret";
 
 describe("link token", () => {
-  it("round-trips a user id within its lifetime", () => {
-    const t = signLinkToken("user-1", 1000, KEY);
-    expect(verifyLinkToken(t, 1000 + LINK_TTL_MS - 1, KEY)).toBe("user-1");
+  it("round-trips a user id within its lifetime", async () => {
+    const t = await signLinkToken("user-1", 1000, KEY);
+    expect(await verifyLinkToken(t, 1000 + LINK_TTL_MS - 1, KEY)).toBe("user-1");
   });
 
-  it("rejects an expired token", () => {
-    const t = signLinkToken("user-1", 1000, KEY);
-    expect(verifyLinkToken(t, 1000 + LINK_TTL_MS + 1, KEY)).toBeNull();
+  it("rejects an expired token", async () => {
+    const t = await signLinkToken("user-1", 1000, KEY);
+    expect(await verifyLinkToken(t, 1000 + LINK_TTL_MS + 1, KEY)).toBeNull();
   });
 
-  it("rejects a token whose user id was swapped", () => {
-    const t = signLinkToken("user-1", 1000, KEY);
+  it("rejects a token whose user id was swapped", async () => {
+    const t = await signLinkToken("user-1", 1000, KEY);
     const [, exp, sig] = t.split(".");
-    expect(verifyLinkToken(`user-2.${exp}.${sig}`, 1000, KEY)).toBeNull();
+    expect(await verifyLinkToken(`user-2.${exp}.${sig}`, 1000, KEY)).toBeNull();
   });
 
-  it("rejects a token signed with another secret, garbage, and absence", () => {
-    const t = signLinkToken("user-1", 1000, "other");
-    expect(verifyLinkToken(t, 1000, KEY)).toBeNull();
-    expect(verifyLinkToken("nope", 1000, KEY)).toBeNull();
-    expect(verifyLinkToken(undefined, 1000, KEY)).toBeNull();
+  it("rejects a token signed with another secret, garbage, and absence", async () => {
+    const t = await signLinkToken("user-1", 1000, "other");
+    expect(await verifyLinkToken(t, 1000, KEY)).toBeNull();
+    expect(await verifyLinkToken("nope", 1000, KEY)).toBeNull();
+    expect(await verifyLinkToken(undefined, 1000, KEY)).toBeNull();
   });
 });
 

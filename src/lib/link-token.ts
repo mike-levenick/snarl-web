@@ -3,8 +3,10 @@
  * as user X and asked to link a Discord account". Set as a cookie before the
  * Discord OAuth redirect and read back in the JWT callback once Discord has
  * answered. Signed so a visitor cannot forge one for someone else's user id.
+ *
+ * Web Crypto only: src/lib/auth.ts is imported by the middleware, which may
+ * run on the Edge runtime where node:crypto is unavailable.
  */
-import { createHmac, timingSafeEqual } from "crypto";
 
 export const LINK_COOKIE = "snarl_link_discord";
 export const LINK_TTL_MS = 10 * 60 * 1000;
@@ -15,29 +17,48 @@ function secret(): string {
   return s;
 }
 
-function sign(payload: string, key: string): string {
-  return createHmac("sha256", key).update(payload).digest("base64url");
+const enc = new TextEncoder();
+
+async function sign(payload: string, key: string): Promise<string> {
+  const k = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(key),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+  const mac = new Uint8Array(await crypto.subtle.sign("HMAC", k, enc.encode(payload)));
+  return Buffer.from(mac).toString("base64url");
 }
 
-export function signLinkToken(userId: string, now = Date.now(), key = secret()): string {
+function constantTimeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+export async function signLinkToken(
+  userId: string,
+  now = Date.now(),
+  key = secret()
+): Promise<string> {
   const payload = `${userId}.${now + LINK_TTL_MS}`;
-  return `${payload}.${sign(payload, key)}`;
+  return `${payload}.${await sign(payload, key)}`;
 }
 
 /** Returns the user id the token vouches for, or null if forged or expired. */
-export function verifyLinkToken(
+export async function verifyLinkToken(
   token: string | undefined,
   now = Date.now(),
   key = secret()
-): string | null {
+): Promise<string | null> {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 3) return null;
   const [userId, expStr, sig] = parts;
-  const expected = sign(`${userId}.${expStr}`, key);
-  const a = Buffer.from(sig);
-  const b = Buffer.from(expected);
-  if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  const expected = await sign(`${userId}.${expStr}`, key);
+  if (!constantTimeEqual(sig, expected)) return null;
   const exp = Number(expStr);
   if (!Number.isFinite(exp) || exp < now) return null;
   return userId || null;

@@ -13,7 +13,7 @@ export async function POST() {
     return Response.json({ error: "Unauthorized" }, { status: 401 });
   }
   const jar = await cookies();
-  jar.set(LINK_COOKIE, signLinkToken(session.user.id), {
+  jar.set(LINK_COOKIE, await signLinkToken(session.user.id), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
