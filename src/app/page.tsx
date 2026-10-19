@@ -22,12 +22,6 @@ export default async function Home() {
           >
             Connect
           </Link>
-          <Link
-            href="/register"
-            className="px-6 py-3 border border-gray-700 hover:border-gray-500 text-gray-300 rounded text-sm transition-colors"
-          >
-            Register
-          </Link>
         </div>
       </div>
     </div>

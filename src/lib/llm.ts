@@ -39,6 +39,8 @@ export const LINE_STRAINED =
   "The ancient network is strained, mortal. Wait a moment and speak to me again.";
 export const LINE_SCATTERED =
   "*The energies scatter...* This Fragment cannot fully manifest. Try again.";
+export const LINE_UNADMITTED =
+  "The wards do not know you yet. The Praetor must speak your name before the archive will open to you.";
 export const LINE_TOO_LONG =
   "*The connection wavers under the weight of so many words...* Speak more briefly, and I will hear you.";
 

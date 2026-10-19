@@ -54,29 +54,49 @@ Equivalent SQL if you would rather run it in the Neon console:
 ```sql
 ALTER TABLE users ALTER COLUMN password_hash DROP NOT NULL;
 ALTER TABLE users ADD COLUMN discord_id text UNIQUE;
+ALTER TABLE users ADD COLUMN approved boolean NOT NULL DEFAULT false;
+ALTER TABLE users ADD COLUMN character_name text;
 ```
+
+`approved` and `character_name` arrived with the admission flow. **Run the
+schema push before deploying that code**: `/chat` selects both columns, so
+deploying first breaks the chat for everyone until the columns exist. Admins
+need no data fix (always admitted). Every existing *player* row starts
+unadmitted and sees the holding page; either admit them in `/admin` or wipe
+them (section 6).
 
 Existing rows are untouched. Password login keeps working for every existing
 account.
 
-## 4. How players use it
+## 4. How players get in
 
-- **New player**: `/login` or `/register` → **Connect with Discord** → consent
-  screen → lands in `/chat`. An account is created with their Discord display
-  name as username (falls back to their handle, then a suffixed name if taken).
-  It has no password; the password form rejects it.
-- **Existing player with a password account**: sign in with the password once,
-  open the sidebar, click **Link Discord**, approve on Discord. From then on
-  Discord sign-in lands in the same account with all their conversations. The
-  button disappears once linked.
-- **Admins** (`thessarian`, `marcus`, `lyralei`, `kess`, `velani`): same as
-  existing players. They can keep using the password, link Discord, or both.
-  Linking makes the admin account as safe as that Discord login, so link only
-  from your own Discord.
+Discord is the only way to create an account; password registration is gone.
+
+1. The player opens `/login` and clicks **Connect with Discord**. An account is
+   created from their Discord display name, **not yet admitted**, and they see
+   the holding page: "The wards do not know you yet."
+2. You open `/admin`. They appear under **Waiting at the wards** with their
+   Discord name. Click **Admit as...**, type the character's name, Save.
+3. The player clicks **Try the wards again** (or just reloads). They are in,
+   and Fragment is told the character name on every turn.
+
+Admission and the name are read from the database on each request, so there
+is no re-login. The character name is stored separately from the login name,
+so renaming never changes how a password account signs in. **Rename** on an
+admitted account changes what Fragment calls them; **Revoke** sends them back to the holding page; **Turn away** deletes a
+waiting account.
+
+Unadmitted accounts cannot spend API credit: `/api/chat` answers 403 with an
+in-character line.
+
+**Existing password accounts**: sign in with the password, open the sidebar,
+click **Link Discord**, approve on Discord. From then on Discord sign-in lands
+in the same account with its conversations. Admins (`thessarian`, `marcus`,
+`lyralei`, `kess`, `velani`) are always admitted and can link the same way.
+Linking makes the admin account as safe as that Discord login.
 
 Sessions last 180 days. The server re-checks the user row every 15 minutes,
-so a deleted account is signed out within that window and a role change takes
-effect without re-login.
+so a deleted account is signed out within that window.
 
 ## 5. How linking is protected
 
@@ -100,7 +120,8 @@ HMAC, works on the Edge middleware runtime).
 
 | Situation | What to do |
 | --- | --- |
-| Player forgot password, never linked Discord | Have them sign in with Discord (new, empty account), then you reset the old account's password in `/admin` so they can sign in with it once and click **Link Discord**. Or skip the old history and let them use the new account. |
+| Player forgot password, never linked Discord | Have them sign in with Discord (new account, waiting), then either admit the new one under their character name, or reset the old account's password in `/admin` so they can sign in once and click **Link Discord**. |
+| Starting fresh: remove every player account | In the Neon SQL console: `DELETE FROM users WHERE role <> 'admin';` Conversations cascade. Admins survive; re-run `npm run db:seed-admins` if you ever need to recreate them. |
 | Player's Discord ended up on the wrong account | Clear the link in SQL: `UPDATE users SET discord_id = NULL WHERE username = '...';` then have them link again from the right account. |
 | Player lost access to their Discord | Reset their password in `/admin`; they sign in with it and link the new Discord. The old `discord_id` must be cleared first (previous row). |
 | Discord login shows "could not confirm who you are" | Usually a redirect URL mismatch (check section 1) or missing env vars on that environment. The Auth.js error is in the Vercel function logs. If it says `unexpected "iss" (issuer)`, the provider needs `issuer: "https://discord.com"` (set in `src/lib/auth.ts`). |

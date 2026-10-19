@@ -3,7 +3,6 @@
 import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { DiscordButton } from "@/components/discord-button";
 
@@ -54,7 +53,7 @@ function LoginForm() {
 
         <div className="flex items-center gap-3 my-6 text-gray-700 font-mono text-xs">
           <div className="flex-1 border-t border-gray-800" />
-          or with a password
+          Praetors and old accounts
           <div className="flex-1 border-t border-gray-800" />
         </div>
 
@@ -93,11 +92,8 @@ function LoginForm() {
           </button>
         </form>
 
-        <p className="text-center text-gray-600 text-sm font-mono mt-6">
-          No account?{" "}
-          <Link href="/register" className="text-accent-400 hover:text-accent-300">
-            Register
-          </Link>
+        <p className="text-center text-gray-600 text-xs font-mono mt-6">
+          New here? Connect with Discord, then tell your DM so the Praetor can admit you.
         </p>
       </div>
     </div>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { signIn, signOut } from "next-auth/react";
 import Link from "next/link";
 import { Markdown } from "./markdown";
@@ -49,6 +50,7 @@ export default function Chat({
   const renameInputRef = useRef<HTMLInputElement>(null);
   const cancelRenameRef = useRef(false);
   const titlePollRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     return () => {
@@ -197,21 +199,25 @@ export default function Chat({
       });
 
       if (!res.ok) {
-        // 400s carry an in-character line in the body (e.g. input too long)
+        // 400/403 carry an in-character line in the body (input too long,
+        // not admitted yet)
         let detail: string | null = null;
-        if (res.status === 400) {
+        if (res.status === 400 || res.status === 403) {
           try {
             detail = (await res.json())?.error ?? null;
           } catch {
             detail = null;
           }
         }
-        if (res.status === 400) {
+        if (res.status === 400 || res.status === 403) {
           // Nothing was saved server-side: take the message back off the
           // screen and give the player their text back to edit.
           setMessages((prev) => prev.filter((m) => m !== userMessage));
           setInput(trimmed);
         }
+        // Admission revoked mid-session: the server component renders the
+        // holding page on the next render.
+        if (res.status === 403) router.refresh();
         throw new ChatRequestError(detail);
       }
 

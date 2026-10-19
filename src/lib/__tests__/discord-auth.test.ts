@@ -143,3 +143,31 @@ describe("resolveDiscordUser", () => {
     expect(got.id).toBe("new-1");
   });
 });
+
+import { displayName, isAdmitted, validateCharacterName } from "../approval";
+
+describe("admission", () => {
+  it("admits approved users and every admin", () => {
+    expect(isAdmitted({ approved: false, role: "user" })).toBe(false);
+    expect(isAdmitted({ approved: true, role: "user" })).toBe(true);
+    expect(isAdmitted({ approved: false, role: "admin" })).toBe(true);
+  });
+
+  it("shows the character name when set, else the login name", () => {
+    expect(displayName({ username: "mlev-5138", characterName: null })).toBe("mlev-5138");
+    expect(displayName({ username: "mlev-5138", characterName: "  " })).toBe("mlev-5138");
+    expect(displayName({ username: "mlev-5138", characterName: "Soryn" })).toBe("Soryn");
+  });
+
+  it("accepts a plain character name and collapses whitespace", () => {
+    expect(validateCharacterName("  Soryn   of No House ")).toEqual({ name: "Soryn of No House" });
+  });
+
+  it("rejects bad names", () => {
+    expect(validateCharacterName("S").error).toMatch(/2-30/);
+    expect(validateCharacterName("x".repeat(31)).error).toMatch(/2-30/);
+    expect(validateCharacterName('Sor"yn').error).toMatch(/characters/);
+    expect(validateCharacterName("Lyralei").error).toMatch(/reserved/);
+    expect(validateCharacterName(42).error).toMatch(/required/);
+  });
+});

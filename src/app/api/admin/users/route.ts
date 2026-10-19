@@ -11,7 +11,9 @@ export async function GET() {
     .select({
       id: users.id,
       username: users.username,
+      characterName: users.characterName,
       role: users.role,
+      approved: users.approved,
       createdAt: users.createdAt,
       discord: isNotNull(users.discordId),
       conversationCount: count(conversations.id),
