@@ -56,6 +56,10 @@ export const { handlers, signIn, signOut, auth } = NextAuth({
   session: { strategy: "jwt", maxAge: SESSION_MAX_AGE_S },
   providers: [
     Discord({
+      // Discord echoes `iss=https://discord.com` on the callback; without this
+      // Auth.js compares it to a placeholder and every sign-in fails with
+      // "unexpected iss (issuer) response parameter value".
+      issuer: "https://discord.com",
       // Identity only; no email scope, nothing else is read.
       authorization: { params: { scope: "identify" } },
     }),

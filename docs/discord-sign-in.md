@@ -103,7 +103,7 @@ HMAC, works on the Edge middleware runtime).
 | Player forgot password, never linked Discord | Have them sign in with Discord (new, empty account), then you reset the old account's password in `/admin` so they can sign in with it once and click **Link Discord**. Or skip the old history and let them use the new account. |
 | Player's Discord ended up on the wrong account | Clear the link in SQL: `UPDATE users SET discord_id = NULL WHERE username = '...';` then have them link again from the right account. |
 | Player lost access to their Discord | Reset their password in `/admin`; they sign in with it and link the new Discord. The old `discord_id` must be cleared first (previous row). |
-| Discord login shows "could not confirm who you are" | Usually a redirect URL mismatch (check section 1) or missing env vars on that environment. The Auth.js error is in the Vercel function logs. |
+| Discord login shows "could not confirm who you are" | Usually a redirect URL mismatch (check section 1) or missing env vars on that environment. The Auth.js error is in the Vercel function logs. If it says `unexpected "iss" (issuer)`, the provider needs `issuer: "https://discord.com"` (set in `src/lib/auth.ts`). |
 
 ## 7. Rotating the client secret
 
