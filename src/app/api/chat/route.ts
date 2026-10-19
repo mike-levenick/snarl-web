@@ -1,14 +1,16 @@
 import { auth } from "@/lib/auth";
 import { db } from "@/db";
-import { conversations, messages } from "@/db/schema";
+import { conversations, messages, users } from "@/db/schema";
 import { eq, asc, isNull, and, count } from "drizzle-orm";
 import { getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
 import { checkUnlockPhrase } from "@/lib/puzzle";
 import { shapeHistory } from "@/lib/history";
+import { displayName, isAdmitted } from "@/lib/approval";
 import { getModelConfig, TITLE_MODEL_ID } from "@/lib/model-config";
 import {
   LINE_TOO_LONG,
+  LINE_UNADMITTED,
   MAX_INPUT_CHARS,
   STAGE_2_NOTE,
   logError,
@@ -27,6 +29,25 @@ export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user?.id) {
     return new Response("Unauthorized", { status: 401 });
+  }
+
+  // Admission and the character name come from the row, not the token, so an
+  // admin's "Admit"/rename applies on the player's very next message.
+  const [account] = await db
+    .select({
+      username: users.username,
+      characterName: users.characterName,
+      role: users.role,
+      approved: users.approved,
+    })
+    .from(users)
+    .where(eq(users.id, session.user.id))
+    .limit(1);
+  if (!account) {
+    return new Response("Unauthorized", { status: 401 });
+  }
+  if (!isAdmitted(account)) {
+    return jsonError(403, LINE_UNADMITTED);
   }
 
   let body: { message?: unknown; conversationId?: unknown };
@@ -50,9 +71,7 @@ export async function POST(req: Request) {
   }
 
   const isNewConversation = !conversationId;
-  const userName = typeof session.user?.name === "string"
-    ? session.user.name.trim() || undefined
-    : undefined;
+  const userName = displayName(account);
   let priorSessionCount = 0;
 
   // Get or create conversation

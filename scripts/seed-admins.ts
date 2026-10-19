@@ -28,13 +28,13 @@ async function main() {
     if (existing) {
       await db
         .update(users)
-        .set({ passwordHash, role: "admin" })
+        .set({ passwordHash, role: "admin", approved: true })
         .where(eq(users.username, username));
       console.log(`Updated ${username}`);
     } else {
       await db
         .insert(users)
-        .values({ username, passwordHash, role: "admin" });
+        .values({ username, passwordHash, role: "admin", approved: true });
       console.log(`Created ${username}`);
     }
   }

@@ -7,7 +7,7 @@ The sibling repo `../Project-SNARL` is the SSH/Python version of the same game w
 ## Tech Stack
 
 - Next.js 16 (App Router), TypeScript, Tailwind CSS
-- Auth: NextAuth.js v5, JWT sessions (180 days). Discord sign-in is the primary path (`AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET`, `identify` scope only); username/password remains for admins and legacy accounts. A password account links Discord via `/api/auth/link-discord` (signed cookie) + the Discord sign-in.
+- Auth: NextAuth.js v5, JWT sessions (180 days). Discord sign-in is the only way to create an account (`AUTH_DISCORD_ID`/`AUTH_DISCORD_SECRET`, `identify` scope only); there is no password registration. New accounts wait (`users.approved = false`) until an admin admits them in `/admin` and sets the character name, which is what Fragment is told. Username/password remains for the seeded admins and legacy accounts. A password account links Discord via `/api/auth/link-discord` (signed cookie) + the Discord sign-in.
 - Database: Neon Postgres via Drizzle ORM
 - LLM: Claude via the Vercel AI SDK 7 (`ai` + `@ai-sdk/anthropic` 4)
 - Tests: Vitest (`npm test`)
@@ -59,6 +59,7 @@ Review lenses and future sessions should treat these as intended, not as bugs:
 - Keyword search, no embeddings. Everything not under `knowledge/public/` is restricted, resolved through symlinks, failing closed.
 - Stage-2 prophecy snippets live in the system prompt, gated by instruction (accepted; the fix would be moving them to `knowledge/restricted/`).
 - Admin passwords come from env and are seeded by script (not in git).
+- Unadmitted accounts (`approved = false`, non-admin) get a holding page at `/chat` and a 403 with `LINE_UNADMITTED` from `/api/chat`; admission and the character name are read from the `users` row on every request, not from the JWT. Admins are always admitted.
 - `users.password_hash` is null for Discord-created accounts; `authorize` rejects them for password login. `users.discord_id` is unique; linking never overwrites an existing link.
 
 ## Git Workflow
