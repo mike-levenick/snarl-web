@@ -72,16 +72,22 @@ function fakeStore(rows: Array<DbUser & { discordId: string | null }>) {
     async isUsernameTaken(u) {
       return rows.some((x) => x.username === u);
     },
-    async create(username, discordId) {
-      const r = { id: `new-${++n}`, username, role: "user" as const, discordId };
+    async create(username, discordId, admin) {
+      const r = { id: `new-${++n}`, username, role: (admin ? "admin" : "user") as "admin" | "user", discordId };
       rows.push(r);
+      return { id: r.id, username: r.username, role: r.role };
+    },
+    async promote(id) {
+      const r = rows.find((x) => x.id === id);
+      if (!r) return null;
+      r.role = "admin";
       return { id: r.id, username: r.username, role: r.role };
     },
   };
   return store;
 }
 
-const base = { globalName: "Soryn", username: "soryn_1", discordId: "d-1" };
+const base = { globalName: "Soryn", username: "soryn_1", discordId: "d-1", adminIds: new Set<string>() };
 
 describe("resolveDiscordUser", () => {
   it("returns the already-linked account", async () => {
@@ -132,11 +138,23 @@ describe("resolveDiscordUser", () => {
     expect(s.rows[0].discordId).toBe("d-old");
   });
 
+  it("makes a configured Discord id admin on creation and on later sign-ins", async () => {
+    const admins = new Set(["d-1"]);
+    const s = fakeStore([]);
+    const created = await resolveDiscordUser({ ...base, adminIds: admins, linkUserId: null, sessionUserId: null }, s);
+    expect(created.role).toBe("admin");
+
+    const s2 = fakeStore([{ id: "a", username: "mlev", role: "user", discordId: "d-1" }]);
+    const promoted = await resolveDiscordUser({ ...base, adminIds: admins, linkUserId: null, sessionUserId: null }, s2);
+    expect(promoted.role).toBe("admin");
+    expect(s2.rows[0].role).toBe("admin");
+  });
+
   it("recovers when a concurrent first sign-in won the insert", async () => {
     const s = fakeStore([]);
     const realCreate = s.create;
-    s.create = async (u, d) => {
-      await realCreate(u, d); // the other request's row
+    s.create = async (u, d, a) => {
+      await realCreate(u, d, a); // the other request's row
       throw new Error("duplicate key value violates unique constraint");
     };
     const got = await resolveDiscordUser({ ...base, linkUserId: null, sessionUserId: null }, s);
@@ -145,6 +163,17 @@ describe("resolveDiscordUser", () => {
 });
 
 import { displayName, isAdmitted, validateCharacterName } from "../approval";
+import { adminDiscordIds } from "../admin-accounts";
+
+describe("adminDiscordIds", () => {
+  it("parses a comma list and ignores junk", () => {
+    expect([...adminDiscordIds({ ADMIN_DISCORD_IDS: " 123456789012, abc, 98765432109 ,," })]).toEqual([
+      "123456789012",
+      "98765432109",
+    ]);
+    expect(adminDiscordIds({}).size).toBe(0);
+  });
+});
 
 describe("admission", () => {
   it("admits approved users and every admin", () => {
