@@ -58,7 +58,7 @@ Review lenses and future sessions should treat these as intended, not as bugs:
 - The main system prompt is one cached block (`cacheControl` ephemeral). Volatile instructions (stage-2 note, greeting cue) are separate, later system messages so the cached prefix stays byte-stable.
 - Keyword search, no embeddings. Everything not under `knowledge/public/` is restricted, resolved through symlinks, failing closed.
 - Stage-2 prophecy snippets live in the system prompt, gated by instruction (accepted; the fix would be moving them to `knowledge/restricted/`).
-- Admin passwords come from env and are seeded by script (not in git). `ADMIN_DISCORD_IDS` makes listed Discord ids admin on sign-in (`resolveDiscordUser`).
+- Admin passwords come from env and are seeded by script (not in git). `ADMIN_DISCORD_IDS` makes listed Discord ids admin on sign-in and `ALLOWED_DISCORD_IDS` admits them without waiting (`resolveDiscordUser`); grants only ever raise access.
 - Unadmitted accounts (`approved = false`, non-admin) get a holding page at `/chat` and a 403 with `LINE_UNADMITTED` from `/api/chat`; admission and the character name are read from the `users` row on every request, not from the JWT. Admins are always admitted.
 - `users.password_hash` is null for Discord-created accounts; `authorize` rejects them for password login. `users.discord_id` is unique; linking never overwrites an existing link.
 

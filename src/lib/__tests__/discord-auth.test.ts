@@ -55,39 +55,61 @@ describe("pickUsername", () => {
 
 import { DiscordLinkError, resolveDiscordUser, type DbUser, type DiscordUserStore } from "../discord-account";
 
-function fakeStore(rows: Array<DbUser & { discordId: string | null }>) {
+type Row = Omit<DbUser, "approved"> & { approved?: boolean; discordId: string | null };
+
+function fakeStore(seed: Row[]) {
   let n = 0;
+  const rows = seed.map((r) => ({ ...r, approved: r.approved ?? false }));
+  const pub = (r: (typeof rows)[number]): DbUser => ({
+    id: r.id,
+    username: r.username,
+    role: r.role,
+    approved: r.approved,
+  });
   const store: DiscordUserStore & { rows: typeof rows } = {
     rows,
     async findByDiscordId(d) {
       const r = rows.find((x) => x.discordId === d);
-      return r ? { id: r.id, username: r.username, role: r.role } : null;
+      return r ? pub(r) : null;
     },
     async linkIfUnlinked(id, d) {
       const r = rows.find((x) => x.id === id && x.discordId === null);
       if (!r) return null;
       r.discordId = d;
-      return { id: r.id, username: r.username, role: r.role };
+      return pub(r);
     },
     async isUsernameTaken(u) {
       return rows.some((x) => x.username === u);
     },
-    async create(username, discordId, admin) {
-      const r = { id: `new-${++n}`, username, role: (admin ? "admin" : "user") as "admin" | "user", discordId };
+    async create(username, discordId, access) {
+      const r = {
+        id: `new-${++n}`,
+        username,
+        role: (access.admin ? "admin" : "user") as "admin" | "user",
+        approved: access.admitted,
+        discordId,
+      };
       rows.push(r);
-      return { id: r.id, username: r.username, role: r.role };
+      return pub(r);
     },
-    async promote(id) {
+    async grant(id, access) {
       const r = rows.find((x) => x.id === id);
       if (!r) return null;
-      r.role = "admin";
-      return { id: r.id, username: r.username, role: r.role };
+      if (access.admin) r.role = "admin";
+      if (access.admitted) r.approved = true;
+      return pub(r);
     },
   };
   return store;
 }
 
-const base = { globalName: "Soryn", username: "soryn_1", discordId: "d-1", adminIds: new Set<string>() };
+const base = {
+  globalName: "Soryn",
+  username: "soryn_1",
+  discordId: "d-1",
+  adminIds: new Set<string>(),
+  allowedIds: new Set<string>(),
+};
 
 describe("resolveDiscordUser", () => {
   it("returns the already-linked account", async () => {
@@ -150,6 +172,24 @@ describe("resolveDiscordUser", () => {
     expect(s2.rows[0].role).toBe("admin");
   });
 
+  it("admits an allowed Discord id on creation and on a later sign-in, without admin", async () => {
+    const allowed = new Set(["d-1"]);
+    const s = fakeStore([]);
+    const created = await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s);
+    expect(created).toMatchObject({ role: "user", approved: true });
+
+    const s2 = fakeStore([{ id: "a", username: "soryn", role: "user", discordId: "d-1" }]);
+    const admitted = await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s2);
+    expect(admitted.approved).toBe(true);
+    expect(s2.rows[0]).toMatchObject({ role: "user", approved: true });
+  });
+
+  it("leaves an unlisted new account waiting", async () => {
+    const s = fakeStore([]);
+    const got = await resolveDiscordUser({ ...base, linkUserId: null, sessionUserId: null }, s);
+    expect(got.approved).toBe(false);
+  });
+
   it("recovers when a concurrent first sign-in won the insert", async () => {
     const s = fakeStore([]);
     const realCreate = s.create;
@@ -163,7 +203,7 @@ describe("resolveDiscordUser", () => {
 });
 
 import { displayName, isAdmitted, validateCharacterName } from "../approval";
-import { adminDiscordIds } from "../admin-accounts";
+import { adminDiscordIds, allowedDiscordIds } from "../admin-accounts";
 
 describe("adminDiscordIds", () => {
   it("parses a comma list and ignores junk", () => {
@@ -172,6 +212,7 @@ describe("adminDiscordIds", () => {
       "98765432109",
     ]);
     expect(adminDiscordIds({}).size).toBe(0);
+    expect([...allowedDiscordIds({ ALLOWED_DISCORD_IDS: "11111111" })]).toEqual(["11111111"]);
   });
 });
 

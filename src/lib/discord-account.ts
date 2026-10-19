@@ -10,12 +10,13 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
-import { ADMIN_USERNAMES, adminDiscordIds } from "./admin-accounts";
+import { ADMIN_USERNAMES, adminDiscordIds, allowedDiscordIds } from "./admin-accounts";
 
 export interface DbUser {
   id: string;
   username: string;
   role: "user" | "admin";
+  approved: boolean;
 }
 
 export interface DiscordUserStore {
@@ -23,9 +24,14 @@ export interface DiscordUserStore {
   /** Sets discord_id on the row only if it has none; returns the row on success. */
   linkIfUnlinked(userId: string, discordId: string): Promise<DbUser | null>;
   isUsernameTaken(username: string): Promise<boolean>;
-  create(username: string, discordId: string, admin: boolean): Promise<DbUser>;
-  /** Make an existing row admin + admitted. */
-  promote(userId: string): Promise<DbUser | null>;
+  create(username: string, discordId: string, access: Access): Promise<DbUser>;
+  /** Raise an existing row to admin and/or admitted (never lowers). */
+  grant(userId: string, access: Access): Promise<DbUser | null>;
+}
+
+export interface Access {
+  admin: boolean;
+  admitted: boolean;
 }
 
 /** Thrown when the link request and the Discord identity disagree; Auth.js
@@ -78,6 +84,19 @@ export interface ResolveInput {
   sessionUserId: string | null;
   /** Discord ids that are admins by configuration; defaults to the env list. */
   adminIds?: Set<string>;
+  /** Discord ids admitted without waiting; defaults to the env list. */
+  allowedIds?: Set<string>;
+}
+
+/** What configuration grants this Discord id, beyond what the row has. */
+function configuredAccess(input: ResolveInput): Access {
+  const admin = (input.adminIds ?? adminDiscordIds()).has(input.discordId);
+  return { admin, admitted: admin || (input.allowedIds ?? allowedDiscordIds()).has(input.discordId) };
+}
+
+/** True when `access` would change `row`. */
+function needsGrant(row: DbUser, access: Access): boolean {
+  return (access.admin && row.role !== "admin") || (access.admitted && !row.approved);
 }
 
 export async function resolveDiscordUser(
@@ -86,25 +105,21 @@ export async function resolveDiscordUser(
 ): Promise<DbUser> {
   const linkUserId =
     input.linkUserId && input.sessionUserId === input.linkUserId ? input.linkUserId : null;
-  const isConfiguredAdmin = (input.adminIds ?? adminDiscordIds()).has(input.discordId);
+  const access = configuredAccess(input);
 
   const linked = await store.findByDiscordId(input.discordId);
   if (linked) {
     if (linkUserId && linked.id !== linkUserId) {
       throw new DiscordLinkError("That Discord account is already bound to another student.");
     }
-    if (isConfiguredAdmin && linked.role !== "admin") {
-      return (await store.promote(linked.id)) ?? linked;
-    }
+    if (needsGrant(linked, access)) return (await store.grant(linked.id, access)) ?? linked;
     return linked;
   }
 
   if (linkUserId) {
     const result = await store.linkIfUnlinked(linkUserId, input.discordId);
     if (result) {
-      if (isConfiguredAdmin && result.role !== "admin") {
-        return (await store.promote(result.id)) ?? result;
-      }
+      if (needsGrant(result, access)) return (await store.grant(result.id, access)) ?? result;
       return result;
     }
     throw new DiscordLinkError("This account is already bound to a different Discord account.");
@@ -114,7 +129,7 @@ export async function resolveDiscordUser(
     store.isUsernameTaken(n)
   );
   try {
-    return await store.create(username, input.discordId, isConfiguredAdmin);
+    return await store.create(username, input.discordId, access);
   } catch (err) {
     // Two first sign-ins at once (double click) or a username race: the
     // other request may have won, in which case its row is ours.
@@ -124,7 +139,7 @@ export async function resolveDiscordUser(
   }
 }
 
-const cols = { id: users.id, username: users.username, role: users.role };
+const cols = { id: users.id, username: users.username, role: users.role, approved: users.approved };
 
 export const dbStore: DiscordUserStore = {
   async findByDiscordId(discordId) {
@@ -143,17 +158,22 @@ export const dbStore: DiscordUserStore = {
     const [row] = await db.select({ id: users.id }).from(users).where(eq(users.username, username)).limit(1);
     return !!row;
   },
-  async create(username, discordId, admin) {
+  async create(username, discordId, access) {
     const [row] = await db
       .insert(users)
-      .values({ username, discordId, ...(admin && { role: "admin", approved: true }) })
+      .values({
+        username,
+        discordId,
+        ...(access.admin && { role: "admin" }),
+        ...(access.admitted && { approved: true }),
+      })
       .returning(cols);
     return row;
   },
-  async promote(userId) {
+  async grant(userId, access) {
     const [row] = await db
       .update(users)
-      .set({ role: "admin", approved: true })
+      .set({ ...(access.admin && { role: "admin" }), ...(access.admitted && { approved: true }) })
       .where(eq(users.id, userId))
       .returning(cols);
     return row ?? null;
