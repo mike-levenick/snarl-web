@@ -1,7 +1,7 @@
 import { requireAdmin } from "@/lib/admin";
 import { db } from "@/db";
 import { users, conversations } from "@/db/schema";
-import { eq, count } from "drizzle-orm";
+import { eq, count, isNotNull } from "drizzle-orm";
 
 export async function GET() {
   const result = await requireAdmin();
@@ -13,6 +13,7 @@ export async function GET() {
       username: users.username,
       role: users.role,
       createdAt: users.createdAt,
+      discord: isNotNull(users.discordId),
       conversationCount: count(conversations.id),
     })
     .from(users)

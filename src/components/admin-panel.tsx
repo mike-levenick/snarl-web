@@ -9,6 +9,7 @@ interface User {
   role: string;
   createdAt: string;
   conversationCount: number;
+  discord: boolean;
 }
 
 export default function AdminPanel() {
@@ -142,6 +143,11 @@ export default function AdminPanel() {
                       {user.role === "admin" && (
                         <span className="ml-2 px-1.5 py-0.5 text-xs bg-accent-600/20 text-accent-400 rounded">
                           admin
+                        </span>
+                      )}
+                      {user.discord && (
+                        <span className="ml-2 px-1.5 py-0.5 text-xs bg-[#5865F2]/20 text-[#8891f5] rounded">
+                          discord
                         </span>
                       )}
                     </td>

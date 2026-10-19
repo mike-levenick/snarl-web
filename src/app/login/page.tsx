@@ -1,16 +1,19 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
+import { DiscordButton } from "@/components/discord-button";
 
-export default function LoginPage() {
+function LoginForm() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
+  const oauthError = useSearchParams().get("error");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,6 +43,19 @@ export default function LoginPage() {
           <p className="text-sm text-gray-600 mt-1">
             Connect to the Weave
           </p>
+        </div>
+
+        <DiscordButton />
+        {oauthError && !error && (
+          <div className="text-red-400 text-sm font-mono text-center mt-4">
+            Discord could not confirm who you are, or that Discord is already bound to another student. Try again, or use a password below.
+          </div>
+        )}
+
+        <div className="flex items-center gap-3 my-6 text-gray-700 font-mono text-xs">
+          <div className="flex-1 border-t border-gray-800" />
+          or with a password
+          <div className="flex-1 border-t border-gray-800" />
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -85,5 +101,13 @@ export default function LoginPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function LoginPage() {
+  return (
+    <Suspense>
+      <LoginForm />
+    </Suspense>
   );
 }
