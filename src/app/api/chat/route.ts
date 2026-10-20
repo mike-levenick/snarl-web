@@ -2,9 +2,8 @@ import { auth } from "@/lib/auth";
 import { db } from "@/db";
 import { conversations, messages, users } from "@/db/schema";
 import { eq, asc, isNull, and, count } from "drizzle-orm";
-import { getSystemPrompt } from "@/lib/prompt";
+import { connectedPlayerNote, getSystemPrompt } from "@/lib/prompt";
 import { getContext } from "@/lib/knowledge-base";
-import { checkUnlockPhrase } from "@/lib/puzzle";
 import { shapeHistory } from "@/lib/history";
 import { displayName, isAdmitted } from "@/lib/approval";
 import { getModelConfig, TITLE_MODEL_ID } from "@/lib/model-config";
@@ -12,7 +11,6 @@ import {
   LINE_TOO_LONG,
   LINE_UNADMITTED,
   MAX_INPUT_CHARS,
-  STAGE_2_NOTE,
   logError,
   runTurn,
 } from "@/lib/llm";
@@ -76,7 +74,6 @@ export async function POST(req: Request) {
 
   // Get or create conversation
   let convId = conversationId as string | undefined;
-  let puzzleState = "initial";
 
   if (convId) {
     const [conv] = await db
@@ -88,7 +85,6 @@ export async function POST(req: Request) {
     if (!conv || conv.userId !== session.user.id) {
       return new Response("Conversation not found", { status: 404 });
     }
-    puzzleState = conv.puzzleState;
   } else {
     // Only count prior sessions when we have a username for the greeting
     if (userName) {
@@ -130,15 +126,6 @@ export async function POST(req: Request) {
     })();
   }
 
-  // Check for unlock phrase
-  if (checkUnlockPhrase(message)) {
-    puzzleState = "stage_2";
-    await db
-      .update(conversations)
-      .set({ puzzleState: "stage_2", updatedAt: new Date() })
-      .where(eq(conversations.id, convId));
-  }
-
   // Save user message
   await db.insert(messages).values({
     conversationId: convId,
@@ -153,23 +140,22 @@ export async function POST(req: Request) {
     .where(eq(messages.conversationId, convId))
     .orderBy(asc(messages.createdAt));
 
-  const stage2 = puzzleState === "stage_2";
   const historyMessages = shapeHistory(
-    history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content })),
-    stage2
+    history.map((m) => ({ role: m.role as "user" | "assistant", content: m.content }))
   );
 
   // Volatile instructions go in separate system messages after the cached
   // prompt so the cache prefix stays byte-stable across turns.
   const extraInstructions: string[] = [];
-  if (stage2) extraInstructions.push(STAGE_2_NOTE);
+  const playerNote = connectedPlayerNote(userName);
+  if (playerNote) extraInstructions.push(playerNote);
   if (isNewConversation && userName) {
     if (priorSessionCount === 0) {
-      extraInstructions.push("This is the student's very first session ever — they are a newcomer. Open your response with a single brief in-character greeting welcoming them by name as a new visitor to the archives, then address their question. One sentence maximum for the greeting.");
+      extraInstructions.push("This player has never reached you before. Open with one brief in-character sentence acknowledging them by name as a newcomer, in whatever mood takes you, then answer.");
     } else if (priorSessionCount <= 3) {
-      extraInstructions.push("This student has visited a few times before. Open your response with a single brief in-character welcome back using their name, then address their question. One sentence maximum for the greeting.");
+      extraInstructions.push("This player has reached you a few times before. Open with one brief in-character sentence acknowledging them by name as someone you have seen before, then answer.");
     } else {
-      extraInstructions.push(`This student is a regular — this is session #${priorSessionCount + 1}. Open your response with a single brief in-character greeting using their name that acknowledges their familiarity with the archives, then address their question. One sentence maximum for the greeting.`);
+      extraInstructions.push(`This player keeps coming back; this is visit ${priorSessionCount + 1}. Open with one brief in-character sentence using their name that shows you know them by now, then answer.`);
     }
   }
 
@@ -180,10 +166,11 @@ export async function POST(req: Request) {
     {
       model: anthropic(modelId),
       effort,
-      systemPrompt: getSystemPrompt(userName),
+      systemPrompt: getSystemPrompt(),
       extraInstructions,
       history: historyMessages,
-      search: (query) => getContext(query, 1500, stage2),
+      // Unbound: the restricted archive is always open to Fragment.
+      search: (query) => getContext(query, 1500, true),
       debug,
       abortSignal: req.signal,
     },

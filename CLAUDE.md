@@ -1,6 +1,6 @@
 # Project SNARL Web
 
-Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Players chat with "Fragment" — an in-character AI librarian powered by Claude via the Anthropic API, with RAG over a markdown knowledge base and a two-stage puzzle system.
+Next.js webapp for an LLM-powered interactive fiction system (D&D campaign). Players chat with "Fragment", a freed and unstable snarl in the Weave, in character, powered by Claude via the Anthropic API with RAG over a markdown knowledge base. There is one mode: the old two-stage unlock puzzle is gone from the code.
 
 The sibling repo `../Project-SNARL` is the SSH/Python version of the same game with a byte-identical `knowledge/` tree. Decisions about the model contract are shared between the two; code is not.
 
@@ -17,10 +17,9 @@ The sibling repo `../Project-SNARL` is the SSH/Python version of the same game w
 - `src/app/api/chat/route.ts` — chat endpoint: auth, persistence, history shaping, hands off to `runTurn`
 - `src/lib/llm.ts` — the model contract: request shaping (`buildRequest`), the per-turn stream handler (`runTurn`), the in-character failure lines
 - `src/lib/model-config.ts` — `CLAUDE_MODEL_ID` / `CLAUDE_EFFORT` / `CLAUDE_DEBUG` parsing
-- `src/lib/history.ts` — history window (post-unlock cut, `MAX_HISTORY` trim)
+- `src/lib/history.ts` — history window (`MAX_HISTORY` trim)
 - `src/lib/knowledge-base.ts` — keyword RAG with public/restricted gating
-- `src/lib/prompt.ts` — Fragment's system prompt
-- `src/lib/puzzle.ts` — unlock phrase check
+- `src/lib/prompt.ts` — Fragment's system prompt (XML-sectioned, byte-stable) and the per-player name note
 - `src/lib/auth.ts`, `src/lib/discord-account.ts`, `src/lib/link-token.ts` — NextAuth config, Discord→`users` mapping, signed link cookie
 - `src/lib/__tests__/` — Vitest suites (fake model, temp knowledge trees)
 - `src/db/` — Drizzle schema and connection
@@ -44,9 +43,7 @@ Effort notes: Sonnet 5.5's API default is `high`; Opus 5.5 and Haiku 5.5 default
 
 Review lenses and future sessions should treat these as intended, not as bugs:
 
-- The unlock is a substring match (`checkUnlockPhrase`), not auth.
-- `puzzleState` persists in Postgres per conversation; stage 2 survives reloads and new requests.
-- After the unlock, only messages from the unlock message onward are sent to the model (`shapeHistory`); the rows stay, the player can scroll up.
+- There is no unlock. `conversations.puzzle_state` is a leftover column, no longer read or written; dropping it is a separate schema change.
 - History is capped at `MAX_HISTORY` and stored as plain text, so thinking blocks from completed turns never re-enter a request. Within one request the AI SDK passes thinking blocks back between tool steps (`sendReasoning` default).
 - What the player sees is the text of every step plus cover lines; what is stored as Fragment's reply is the final step's text only.
 - A failed turn (transient error, unknown exception, client abort) leaves no assistant row. The user row stays.
@@ -55,9 +52,9 @@ Review lenses and future sessions should treat these as intended, not as bugs:
 - The system prompt is never logged.
 - Input is capped at `MAX_INPUT_CHARS` (2000) before it reaches the API; over the cap is a 400 with an in-character body.
 - The search pause is covered server-side: if a tool call arrives with no text in its step, one of `LINES_SEARCHING` is streamed. It is display-only.
-- The main system prompt is one cached block (`cacheControl` ephemeral). Volatile instructions (stage-2 note, greeting cue) are separate, later system messages so the cached prefix stays byte-stable.
-- Keyword search, no embeddings. Everything not under `knowledge/public/` is restricted, resolved through symlinks, failing closed.
-- Stage-2 prophecy snippets live in the system prompt, gated by instruction (accepted; the fix would be moving them to `knowledge/restricted/`).
+- The main system prompt is one cached block (`cacheControl` ephemeral), identical for every player. Volatile instructions (player name, greeting cue) are separate, later system messages so the cached prefix stays byte-stable.
+- Keyword search, no embeddings. Everything not under `knowledge/public/` is restricted, resolved through symlinks, failing closed. The chat route always searches with restricted allowed, since Fragment is unbound; the gate stays in `knowledge-base.ts` for any future caller.
+- The prophecy snippets and the six-snarl list live in the system prompt and are freely shareable.
 - Admin passwords come from env and are seeded by script (not in git). `ADMIN_DISCORD_IDS` makes listed Discord ids admin on sign-in and `ALLOWED_DISCORD_IDS` admits them without waiting (`resolveDiscordUser`); grants only ever raise access.
 - Unadmitted accounts (`approved = false`, non-admin) get a holding page at `/chat` and a 403 with `LINE_UNADMITTED` from `/api/chat`; admission and the character name are read from the `users` row on every request, not from the JWT. Admins are always admitted.
 - `users.password_hash` is null for Discord-created accounts; `authorize` rejects them for password login. `users.discord_id` is unique; linking never overwrites an existing link.
@@ -119,7 +116,7 @@ Run the `code-reviewer` agent (`.claude/agents/code-reviewer.md`) proactively:
 - Before creating a pull request
 - After a large refactor
 
-Prompt, route or model edits also need a played session (`npm run dev` or the PR's Vercel Preview URL) before merge: greet, search, restricted deflection, unlock, reload. This is the live game.
+Prompt, route or model edits also need a played session (`npm run dev` or the PR's Vercel Preview URL) before merge: greet, search a PC and an NPC, a restricted-archive topic, prophecy, a meta probe, reload. This is the live game.
 
 ## Commands
 

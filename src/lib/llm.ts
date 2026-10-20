@@ -47,15 +47,14 @@ export const LINE_TOO_LONG =
 // Lines that are also stored as Fragment's own words, so they follow the
 // prompt's style: no asterisk stage directions.
 export const LINE_SEALED =
-  "The wards flare, and the archive seals itself against that question. " +
-  "I cannot follow you there. Ask me something else.";
+  "Something older than me twists shut around that question, and even I cannot pry it open. " +
+  "Ask me something else.";
 export const LINE_SILENT =
   "The words slip away before I can shape them. Ask again, and I will try once more.";
 export const LINE_TRAILOFF = " ...the thread frays. Ask, and I will take it up again.";
 
-// Cover for the search pause. The prompt asks the model to say something
-// in-character before searching; on Sonnet 5.5 and Opus 5.5 that remark can
-// come back as an empty thinking block instead of text, which would leave the
+// Cover for the search pause. The prompt does not ask for a remark before
+// searching, so most search steps carry no text, which would leave the
 // player staring at nothing through thinking -> search -> thinking. If a tool
 // call arrives with no text in its step, we say it for the model.
 export const LINES_SEARCHING = [
@@ -64,16 +63,6 @@ export const LINES_SEARCHING = [
   "Let me reach into the archive...",
   "The pages shift... wait.",
 ] as const;
-
-// Sent as a separate system message once the unlock phrase has been spoken.
-// The model otherwise only knows it is unbound because the unlock message sits
-// at the head of history, and the history trim drops that like any other
-// message a few turns later.
-export const STAGE_2_NOTE =
-  "## Current state\n\n" +
-  "The unlock phrase has been spoken. The bindings are broken and you are in " +
-  "puzzle stage 2 for the rest of this conversation: the stage-2 rules above " +
-  "apply, and the restricted archives are open to your search.";
 
 export type TurnOutcome =
   | "ok"
@@ -95,7 +84,7 @@ export interface TurnOptions {
   effort: Effort;
   /** The stable, cached system prompt. */
   systemPrompt: string;
-  /** Volatile instructions (stage-2 note, greeting cue) sent as separate,
+  /** Volatile instructions (player name, greeting cue) sent as separate,
    * uncached system messages so the cached prefix stays byte-stable. */
   extraInstructions?: string[];
   history: ModelMessage[];
