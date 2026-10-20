@@ -34,7 +34,7 @@ guilds, no messages.
 | --- | --- | --- |
 | `AUTH_DISCORD_ID` | Vercel: Production, Preview, Development. Local `.env`. | Client ID |
 | `AUTH_DISCORD_SECRET` | Same, marked **Sensitive** in Vercel. | Client Secret |
-| `ALLOWED_DISCORD_IDS` | Same. Optional. | Comma-separated Discord user ids that skip the waiting step: admitted on first sign-in (or on the next sign-in if already waiting), under their Discord name until you **Rename** them in `/admin`. Collect ids in your server with Developer Mode on: right-click a member, **Copy User ID**. Changing the list needs a redeploy. |
+| `ALLOWED_DISCORD_IDS` | Same. Optional. | Comma-separated entries `id` or `id=Character Name`. Listed ids skip the waiting step: admitted on first sign-in (or on the next sign-in if already waiting). With a name, that becomes the character name Fragment uses, unless one was already set in `/admin`; without one they keep their Discord name until you **Rename** them. Same `id=Name` form works in `ADMIN_DISCORD_IDS`. Collect ids in your server with Developer Mode on: right-click a member, **Copy User ID**. Changing the list needs a redeploy. |
 | `ADMIN_DISCORD_IDS` | Same. Optional. | Comma-separated Discord user ids that become admin + admitted the moment they sign in, and are promoted if their account already exists. Get an id from Discord (Settings > Advanced > Developer Mode, right-click a name > Copy User ID) or from `users.discord_id`. |
 
 `NEXTAUTH_SECRET` (or `AUTH_SECRET`) must already be set; it also signs the

@@ -55,16 +55,21 @@ describe("pickUsername", () => {
 
 import { DiscordLinkError, resolveDiscordUser, type DbUser, type DiscordUserStore } from "../discord-account";
 
-type Row = Omit<DbUser, "approved"> & { approved?: boolean; discordId: string | null };
+type Row = Omit<DbUser, "approved" | "characterName"> & {
+  approved?: boolean;
+  characterName?: string | null;
+  discordId: string | null;
+};
 
 function fakeStore(seed: Row[]) {
   let n = 0;
-  const rows = seed.map((r) => ({ ...r, approved: r.approved ?? false }));
+  const rows = seed.map((r) => ({ ...r, approved: r.approved ?? false, characterName: r.characterName ?? null }));
   const pub = (r: (typeof rows)[number]): DbUser => ({
     id: r.id,
     username: r.username,
     role: r.role,
     approved: r.approved,
+    characterName: r.characterName,
   });
   const store: DiscordUserStore & { rows: typeof rows } = {
     rows,
@@ -87,6 +92,7 @@ function fakeStore(seed: Row[]) {
         username,
         role: (access.admin ? "admin" : "user") as "admin" | "user",
         approved: access.admitted,
+        characterName: access.characterName,
         discordId,
       };
       rows.push(r);
@@ -97,6 +103,7 @@ function fakeStore(seed: Row[]) {
       if (!r) return null;
       if (access.admin) r.role = "admin";
       if (access.admitted) r.approved = true;
+      if (access.characterName && !r.characterName) r.characterName = access.characterName;
       return pub(r);
     },
   };
@@ -107,9 +114,10 @@ const base = {
   globalName: "Soryn",
   username: "soryn_1",
   discordId: "d-1",
-  adminIds: new Set<string>(),
-  allowedIds: new Set<string>(),
+  adminIds: new Map<string, string | null>(),
+  allowedIds: new Map<string, string | null>(),
 };
+const ids = (...entries: Array<[string, string | null]>) => new Map(entries);
 
 describe("resolveDiscordUser", () => {
   it("returns the already-linked account", async () => {
@@ -161,7 +169,7 @@ describe("resolveDiscordUser", () => {
   });
 
   it("makes a configured Discord id admin on creation and on later sign-ins", async () => {
-    const admins = new Set(["d-1"]);
+    const admins = ids(["d-1", null]);
     const s = fakeStore([]);
     const created = await resolveDiscordUser({ ...base, adminIds: admins, linkUserId: null, sessionUserId: null }, s);
     expect(created.role).toBe("admin");
@@ -173,7 +181,7 @@ describe("resolveDiscordUser", () => {
   });
 
   it("admits an allowed Discord id on creation and on a later sign-in, without admin", async () => {
-    const allowed = new Set(["d-1"]);
+    const allowed = ids(["d-1", null]);
     const s = fakeStore([]);
     const created = await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s);
     expect(created).toMatchObject({ role: "user", approved: true });
@@ -182,6 +190,21 @@ describe("resolveDiscordUser", () => {
     const admitted = await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s2);
     expect(admitted.approved).toBe(true);
     expect(s2.rows[0]).toMatchObject({ role: "user", approved: true });
+  });
+
+  it("sets the configured character name on creation and on an existing unnamed row, never over a set one", async () => {
+    const allowed = ids(["d-1", "Soryn"]);
+    const s = fakeStore([]);
+    const created = await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s);
+    expect(created).toMatchObject({ approved: true, characterName: "Soryn" });
+
+    const s2 = fakeStore([{ id: "a", username: "soryn_1", role: "user", discordId: "d-1" }]);
+    await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s2);
+    expect(s2.rows[0].characterName).toBe("Soryn");
+
+    const s3 = fakeStore([{ id: "a", username: "soryn_1", role: "user", approved: true, characterName: "Renamed", discordId: "d-1" }]);
+    await resolveDiscordUser({ ...base, allowedIds: allowed, linkUserId: null, sessionUserId: null }, s3);
+    expect(s3.rows[0].characterName).toBe("Renamed");
   });
 
   it("leaves an unlisted new account waiting", async () => {
@@ -207,12 +230,14 @@ import { adminDiscordIds, allowedDiscordIds } from "../admin-accounts";
 
 describe("adminDiscordIds", () => {
   it("parses a comma list and ignores junk", () => {
-    expect([...adminDiscordIds({ ADMIN_DISCORD_IDS: " 123456789012, abc, 98765432109 ,," })]).toEqual([
-      "123456789012",
-      "98765432109",
+    expect([...adminDiscordIds({ ADMIN_DISCORD_IDS: " 123456789012, abc, 98765432109=Mike ,," })]).toEqual([
+      ["123456789012", null],
+      ["98765432109", "Mike"],
     ]);
     expect(adminDiscordIds({}).size).toBe(0);
-    expect([...allowedDiscordIds({ ALLOWED_DISCORD_IDS: "11111111" })]).toEqual(["11111111"]);
+    expect([...allowedDiscordIds({ ALLOWED_DISCORD_IDS: "11111111=Soryn of No House" })]).toEqual([
+      ["11111111", "Soryn of No House"],
+    ]);
   });
 });
 
