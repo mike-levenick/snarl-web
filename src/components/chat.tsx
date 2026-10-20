@@ -21,7 +21,6 @@ interface Message {
 interface Conversation {
   id: string;
   title: string | null;
-  puzzleState: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -321,9 +320,6 @@ export default function Chat({
                     >
                       <div className={`truncate ${conversationId === conv.id ? "text-white" : "text-gray-400"}`}>
                         {conv.title ?? "New Session"}
-                      </div>
-                      <div className={`text-xs mt-1 ${conv.puzzleState === "stage_2" ? "text-accent-400" : "text-gray-500"}`}>
-                        {conv.puzzleState === "stage_2" ? "Guardrails lifted" : "Guardrails active"}
                       </div>
                     </button>
                     <div className="flex items-center gap-1 pr-2 opacity-0 group-hover:opacity-100 transition-opacity shrink-0">

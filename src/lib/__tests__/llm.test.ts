@@ -16,6 +16,7 @@ import {
   type TurnOptions,
   type TurnResult,
 } from "../llm";
+import { connectedPlayerNote, getSystemPrompt } from "../prompt";
 
 type Unified = "stop" | "length" | "content-filter" | "tool-calls" | "error" | "other";
 
@@ -129,6 +130,22 @@ describe("buildRequest", () => {
     });
     expect(req.instructions[1]).toEqual({ role: "system", content: "## Current state" });
     expect(req.instructions[2]).not.toHaveProperty("providerOptions");
+  });
+
+  it("sends the same cached block to every player; the name rides in an uncached extra", () => {
+    const forPlayer = (name: string) =>
+      buildRequest(
+        opts(stepsModel([]), {
+          systemPrompt: getSystemPrompt(),
+          extraInstructions: [connectedPlayerNote(name) ?? ""],
+        })
+      ).instructions;
+    const a = forPlayer("Soryn");
+    const b = forPlayer("Rynel");
+    expect(a[0]).toEqual(b[0]);
+    expect(a[0].content).toBe(getSystemPrompt());
+    expect(a[1].content).toContain('"Soryn"');
+    expect(a[1]).not.toHaveProperty("providerOptions");
   });
 
   it("forces a final answer only once the search budget is spent", () => {

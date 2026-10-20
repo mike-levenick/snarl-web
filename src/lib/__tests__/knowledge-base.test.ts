@@ -77,7 +77,7 @@ describe("indexSections", () => {
 });
 
 describe("KnowledgeBase.search", () => {
-  it("hides restricted, top-level, sibling and symlinked content before the unlock", () => {
+  it("hides restricted, top-level, sibling and symlinked content unless restricted is allowed", () => {
     const kb = new KnowledgeBase(root);
     for (const q of ["Lyralei", "Zarantyr", "Vol", "Mordain"]) {
       expect(kb.search(q, 3, 2000, false), q).toEqual([]);
@@ -85,7 +85,7 @@ describe("KnowledgeBase.search", () => {
     expect(kb.search("Sharn", 3, 2000, false).map((r) => r.title)).toContain("Sharn");
   });
 
-  it("opens restricted/ after the unlock", () => {
+  it("opens restricted/ when allowed", () => {
     const kb = new KnowledgeBase(root);
     expect(kb.search("Lyralei", 3, 2000, true).map((r) => r.title)).toContain("Lyralei");
   });
