@@ -11,12 +11,14 @@ import { and, eq, isNull } from "drizzle-orm";
 import { db } from "@/db";
 import { users } from "@/db/schema";
 import { ADMIN_USERNAMES, adminDiscordIds, allowedDiscordIds } from "./admin-accounts";
+import { validateCharacterName } from "./approval";
 
 export interface DbUser {
   id: string;
   username: string;
   role: "user" | "admin";
   approved: boolean;
+  characterName: string | null;
 }
 
 export interface DiscordUserStore {
@@ -32,6 +34,8 @@ export interface DiscordUserStore {
 export interface Access {
   admin: boolean;
   admitted: boolean;
+  /** Character name from configuration; only applied when the row has none. */
+  characterName: string | null;
 }
 
 /** Thrown when the link request and the Discord identity disagree; Auth.js
@@ -83,20 +87,32 @@ export interface ResolveInput {
    * cannot bind the next visitor's Discord to someone else's account. */
   sessionUserId: string | null;
   /** Discord ids that are admins by configuration; defaults to the env list. */
-  adminIds?: Set<string>;
+  adminIds?: Map<string, string | null>;
   /** Discord ids admitted without waiting; defaults to the env list. */
-  allowedIds?: Set<string>;
+  allowedIds?: Map<string, string | null>;
 }
 
 /** What configuration grants this Discord id, beyond what the row has. */
 function configuredAccess(input: ResolveInput): Access {
-  const admin = (input.adminIds ?? adminDiscordIds()).has(input.discordId);
-  return { admin, admitted: admin || (input.allowedIds ?? allowedDiscordIds()).has(input.discordId) };
+  const admins = input.adminIds ?? adminDiscordIds();
+  const allowed = input.allowedIds ?? allowedDiscordIds();
+  const admin = admins.has(input.discordId);
+  const raw = allowed.get(input.discordId) ?? admins.get(input.discordId) ?? null;
+  const v = raw ? validateCharacterName(raw) : null;
+  return {
+    admin,
+    admitted: admin || allowed.has(input.discordId),
+    characterName: v?.name ?? null,
+  };
 }
 
 /** True when `access` would change `row`. */
 function needsGrant(row: DbUser, access: Access): boolean {
-  return (access.admin && row.role !== "admin") || (access.admitted && !row.approved);
+  return (
+    (access.admin && row.role !== "admin") ||
+    (access.admitted && !row.approved) ||
+    (access.characterName !== null && !row.characterName)
+  );
 }
 
 export async function resolveDiscordUser(
@@ -139,7 +155,13 @@ export async function resolveDiscordUser(
   }
 }
 
-const cols = { id: users.id, username: users.username, role: users.role, approved: users.approved };
+const cols = {
+  id: users.id,
+  username: users.username,
+  role: users.role,
+  approved: users.approved,
+  characterName: users.characterName,
+};
 
 export const dbStore: DiscordUserStore = {
   async findByDiscordId(discordId) {
@@ -166,14 +188,24 @@ export const dbStore: DiscordUserStore = {
         discordId,
         ...(access.admin && { role: "admin" }),
         ...(access.admitted && { approved: true }),
+        ...(access.characterName && { characterName: access.characterName }),
       })
       .returning(cols);
     return row;
   },
   async grant(userId, access) {
+    const [current] = await db
+      .select({ characterName: users.characterName })
+      .from(users)
+      .where(eq(users.id, userId))
+      .limit(1);
     const [row] = await db
       .update(users)
-      .set({ ...(access.admin && { role: "admin" }), ...(access.admitted && { approved: true }) })
+      .set({
+        ...(access.admin && { role: "admin" }),
+        ...(access.admitted && { approved: true }),
+        ...(access.characterName && !current?.characterName && { characterName: access.characterName }),
+      })
       .where(eq(users.id, userId))
       .returning(cols);
     return row ?? null;
