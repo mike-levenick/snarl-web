@@ -189,6 +189,18 @@ describe("runTurn", () => {
     expect(model.doStreamCalls).toHaveLength(2);
   });
 
+  it("never repeats a cover line across back-to-back searches in one turn", async () => {
+    const model = stepsModel([
+      [toolCall("Sharn"), finish("tool-calls")],
+      [toolCall("Lost"), finish("tool-calls")],
+      [...text("c", "Found it."), finish("stop")],
+    ]);
+    const shown = await collect(runTurn(opts(model), { onDone: () => {} }));
+    const covers = shown.split("\n\n").slice(0, 2);
+    for (const line of covers) expect(LINES_SEARCHING).toContain(line);
+    expect(covers[0]).not.toBe(covers[1]);
+  });
+
   it("covers the search pause when the tool call arrives with no text", async () => {
     const model = stepsModel([
       [toolCall("Sharn"), finish("tool-calls")],
