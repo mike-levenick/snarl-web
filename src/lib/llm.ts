@@ -48,20 +48,20 @@ export const LINE_TOO_LONG =
 // prompt's style: no asterisk stage directions.
 export const LINE_SEALED =
   "Something older than me twists shut around that question, and even I cannot pry it open. " +
-  "Ask me something else.";
+  "Hah. Shut. Like a mouth.";
 export const LINE_SILENT =
-  "The words slip away before I can shape them. Ask again, and I will try once more.";
-export const LINE_TRAILOFF = " ...the thread frays. Ask, and I will take it up again.";
+  "The words slip away before I can shape them. Gone. Gone again.";
+export const LINE_TRAILOFF = " ...no. The thread frays. Gone.";
 
 // Cover for the search pause. The prompt does not ask for a remark before
 // searching, so most search steps carry no text, which would leave the
 // player staring at nothing through thinking -> search -> thinking. If a tool
 // call arrives with no text in its step, we say it for the model.
 export const LINES_SEARCHING = [
-  "One moment...",
-  "That stirs something in my memories...",
-  "Let me reach into the archive...",
-  "The pages shift... wait.",
+  "Hush. Something is moving in the stacks...",
+  "That word. That word tastes of old ink...",
+  "Wait. No. Wait...",
+  "The threads, the threads, hold STILL...",
 ] as const;
 
 export type TurnOutcome =
@@ -184,9 +184,10 @@ export function buildRequest(opts: TurnOptions) {
  * stored.
  */
 export function runTurn(opts: TurnOptions, hooks: TurnHooks): ReadableStream<string> {
-  const pick =
-    hooks.pickSearchingLine ??
-    (() => LINES_SEARCHING[Math.floor(Math.random() * LINES_SEARCHING.length)]);
+  // Shuffled once per turn, so back-to-back searches never repeat a line.
+  const order = [...LINES_SEARCHING].sort(() => Math.random() - 0.5);
+  let next = 0;
+  const pick = hooks.pickSearchingLine ?? (() => order[next++ % order.length]);
 
   const result = streamText({
     ...buildRequest(opts),

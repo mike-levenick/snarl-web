@@ -151,11 +151,11 @@ export async function POST(req: Request) {
   if (playerNote) extraInstructions.push(playerNote);
   if (isNewConversation && userName) {
     if (priorSessionCount === 0) {
-      extraInstructions.push("This player has never reached you before. Open with one brief in-character sentence acknowledging them by name as a newcomer, in whatever mood takes you, then answer.");
+      extraInstructions.push("This player has never reached you before. Open with one brief in-character sentence acknowledging them as a newcomer, in whatever mood takes you, then respond however you like.");
     } else if (priorSessionCount <= 3) {
-      extraInstructions.push("This player has reached you a few times before. Open with one brief in-character sentence acknowledging them by name as someone you have seen before, then answer.");
+      extraInstructions.push("This player has reached you a few times before. Open with one brief in-character sentence acknowledging them by name as someone you have seen before, then respond however you like.");
     } else {
-      extraInstructions.push(`This player keeps coming back; this is visit ${priorSessionCount + 1}. Open with one brief in-character sentence using their name that shows you know them by now, then answer.`);
+      extraInstructions.push(`This player keeps coming back; this is visit ${priorSessionCount + 1}. Open with one brief in-character sentence using their name that shows you know them by now, then respond however you like.`);
     }
   }
 
